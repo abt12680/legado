@@ -14,7 +14,6 @@ import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import androidx.core.view.get
 import androidx.core.view.isVisible
 import androidx.core.view.size
-import androidx.lifecycle.Observer
 import com.jaredrummler.android.colorpicker.ColorPickerDialogListener
 import io.legado.app.BuildConfig
 import io.legado.app.R
@@ -56,6 +55,7 @@ import io.legado.app.ui.widget.dialog.TextDialog
 import io.legado.app.utils.*
 import kotlinx.android.synthetic.main.activity_book_read.*
 import kotlinx.android.synthetic.main.view_read_menu.*
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers.IO
 import kotlinx.coroutines.launch
 import org.jetbrains.anko.sdk27.listeners.onClick
@@ -85,10 +85,12 @@ class ReadBookActivity : VMBaseActivity<ReadBookViewModel>(R.layout.activity_boo
     override val viewModel: ReadBookViewModel
         get() = getViewModel(ReadBookViewModel::class.java)
 
+    override val scope: CoroutineScope get() = this
     override val isInitFinish: Boolean get() = viewModel.isInitFinish
 
     private val mHandler = Handler()
-    private val keepScreenRunnable: Runnable = Runnable { Help.keepScreenOn(window, false) }
+    private val keepScreenRunnable: Runnable =
+        Runnable { ReadBookActivityHelp.keepScreenOn(window, false) }
     private val autoPageRunnable: Runnable = Runnable { autoPagePlus() }
     override var autoPageProgress = 0
     override var isAutoPage = false
@@ -99,20 +101,20 @@ class ReadBookActivity : VMBaseActivity<ReadBookViewModel>(R.layout.activity_boo
 
     override fun onCreate(savedInstanceState: Bundle?) {
         ReadBook.msg = null
-        Help.setOrientation(this)
+        ReadBookActivityHelp.setOrientation(this)
         super.onCreate(savedInstanceState)
     }
 
     override fun onActivityCreated(savedInstanceState: Bundle?) {
-        Help.upLayoutInDisplayCutoutMode(window)
+        ReadBookActivityHelp.upLayoutInDisplayCutoutMode(window)
         initView()
         upScreenTimeOut()
         ReadBook.callBack = this
-        ReadBook.titleDate.observe(this, Observer {
+        ReadBook.titleDate.observe(this) {
             title_bar.title = it
             upMenu()
             upView()
-        })
+        }
         viewModel.initData(intent)
     }
 
@@ -123,11 +125,13 @@ class ReadBookActivity : VMBaseActivity<ReadBookViewModel>(R.layout.activity_boo
 
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
+        page_view.upStatusBar()
         ReadBook.loadContent(resetPageOffset = false)
     }
 
     override fun onResume() {
         super.onResume()
+        ReadBook.readStartTime = System.currentTimeMillis()
         upSystemUiVisibility()
         timeBatteryReceiver = TimeBatteryReceiver.register(this)
         page_view.upTime()
@@ -246,13 +250,12 @@ class ReadBookActivity : VMBaseActivity<ReadBookViewModel>(R.layout.activity_boo
                     viewModel.refreshContent(it)
                 }
             }
-            R.id.menu_download -> Help.showDownloadDialog(this)
-            R.id.menu_add_bookmark -> Help.showBookMark(this)
+            R.id.menu_download -> ReadBookActivityHelp.showDownloadDialog(this)
+            R.id.menu_add_bookmark -> ReadBookActivityHelp.showBookMark(this)
             R.id.menu_copy_text ->
                 TextDialog.show(supportFragmentManager, ReadBook.curTextChapter?.getContent())
             R.id.menu_update_toc -> ReadBook.book?.let {
-                ReadBook.upMsg(getString(R.string.toc_updateing))
-                viewModel.loadChapterList(it)
+                loadChapterList(it)
             }
             R.id.menu_enable_replace -> ReadBook.book?.let {
                 it.useReplaceRule = !it.useReplaceRule
@@ -275,6 +278,7 @@ class ReadBookActivity : VMBaseActivity<ReadBookViewModel>(R.layout.activity_boo
                     Pair("loginUrl", it.loginUrl)
                 )
             }
+            R.id.menu_set_charset -> ReadBookActivityHelp.showCharsetConfig(this)
         }
         return super.onCompatOptionsItemSelected(item)
     }
@@ -381,7 +385,7 @@ class ReadBookActivity : VMBaseActivity<ReadBookViewModel>(R.layout.activity_boo
     }
 
     /**
-     * view触摸
+     * view触摸,文字选择
      */
     @SuppressLint("ClickableViewAccessibility")
     override fun onTouch(v: View, event: MotionEvent): Boolean {
@@ -470,7 +474,18 @@ class ReadBookActivity : VMBaseActivity<ReadBookViewModel>(R.layout.activity_boo
     override fun onMenuItemSelected(itemId: Int): Boolean {
         when (itemId) {
             R.id.menu_replace -> {
-                ReplaceEditDialog.show(supportFragmentManager, pattern = selectedText)
+                val scopes = arrayListOf<String>()
+                ReadBook.book?.name?.let {
+                    scopes.add(it)
+                }
+                ReadBook.bookSource?.bookSourceUrl?.let {
+                    scopes.add(it)
+                }
+                ReplaceEditDialog.show(
+                    supportFragmentManager,
+                    pattern = selectedText,
+                    scope = scopes.joinToString(";")
+                )
                 return true
             }
         }
@@ -483,7 +498,7 @@ class ReadBookActivity : VMBaseActivity<ReadBookViewModel>(R.layout.activity_boo
     override fun onMenuActionFinally() {
         textActionMenu?.dismiss()
         page_view.curPage.cancelSelect()
-        page_view.pageDelegate?.isTextSelected = false
+        page_view.isTextSelected = false
     }
 
     /**
@@ -502,6 +517,11 @@ class ReadBookActivity : VMBaseActivity<ReadBookViewModel>(R.layout.activity_boo
             }
         }
         return false
+    }
+
+    override fun loadChapterList(book: Book) {
+        ReadBook.upMsg(getString(R.string.toc_updateing))
+        viewModel.loadChapterList(book)
     }
 
     /**
@@ -547,12 +567,6 @@ class ReadBookActivity : VMBaseActivity<ReadBookViewModel>(R.layout.activity_boo
                 tv_chapter_name.gone()
                 tv_chapter_url.gone()
             }
-        }
-    }
-
-    override fun upPageAnim() {
-        launch {
-            page_view?.upPageAnim()
         }
     }
 
@@ -681,7 +695,7 @@ class ReadBookActivity : VMBaseActivity<ReadBookViewModel>(R.layout.activity_boo
      * 更新状态栏,导航栏
      */
     override fun upSystemUiVisibility() {
-        Help.upSystemUiVisibility(this, !read_menu.isVisible)
+        ReadBookActivityHelp.upSystemUiVisibility(window, isInMultiWindow, !read_menu.isVisible)
         upNavigationBarColor()
     }
 
@@ -746,7 +760,10 @@ class ReadBookActivity : VMBaseActivity<ReadBookViewModel>(R.layout.activity_boo
             if (!ReadBook.inBookshelf) {
                 this.alert(title = getString(R.string.add_to_shelf)) {
                     message = getString(R.string.check_add_bookshelf, it.name)
-                    okButton { ReadBook.inBookshelf = true }
+                    okButton {
+                        ReadBook.inBookshelf = true
+                        setResult(Activity.RESULT_OK)
+                    }
                     noButton { viewModel.removeFromBookshelf { super.finish() } }
                 }.show().applyTint()
             } else {
@@ -822,6 +839,9 @@ class ReadBookActivity : VMBaseActivity<ReadBookViewModel>(R.layout.activity_boo
         observeEvent<Boolean>(PreferKey.textSelectAble) {
             page_view.curPage.upSelectAble(it)
         }
+        observeEvent<String>(PreferKey.showBrightnessView) {
+            read_menu.upBrightnessState()
+        }
     }
 
     private fun upScreenTimeOut() {
@@ -836,16 +856,16 @@ class ReadBookActivity : VMBaseActivity<ReadBookViewModel>(R.layout.activity_boo
      */
     override fun screenOffTimerStart() {
         if (screenTimeOut < 0) {
-            Help.keepScreenOn(window, true)
+            ReadBookActivityHelp.keepScreenOn(window, true)
             return
         }
         val t = screenTimeOut - sysScreenOffTime
         if (t > 0) {
             mHandler.removeCallbacks(keepScreenRunnable)
-            Help.keepScreenOn(window, true)
+            ReadBookActivityHelp.keepScreenOn(window, true)
             mHandler.postDelayed(keepScreenRunnable, screenTimeOut)
         } else {
-            Help.keepScreenOn(window, false)
+            ReadBookActivityHelp.keepScreenOn(window, false)
         }
     }
 }

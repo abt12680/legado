@@ -13,8 +13,10 @@ import io.legado.app.R
 import io.legado.app.constant.EventBus
 import io.legado.app.constant.PreferKey
 import io.legado.app.data.entities.*
+import io.legado.app.help.AppConfig
 import io.legado.app.help.LauncherIconHelp
 import io.legado.app.help.ReadBookConfig
+import io.legado.app.help.ThemeConfig
 import io.legado.app.service.help.ReadBook
 import io.legado.app.ui.book.read.page.provider.ChapterProvider
 import io.legado.app.utils.*
@@ -22,6 +24,7 @@ import kotlinx.coroutines.Dispatchers.IO
 import kotlinx.coroutines.Dispatchers.Main
 import kotlinx.coroutines.withContext
 import org.jetbrains.anko.defaultSharedPreferences
+import org.jetbrains.anko.toast
 import java.io.File
 
 object Restore {
@@ -36,14 +39,18 @@ object Restore {
     val ignoreKeys = arrayOf(
         "readConfig",
         PreferKey.themeMode,
-        PreferKey.bookshelfLayout
+        PreferKey.bookshelfLayout,
+        PreferKey.showRss,
+        PreferKey.threadCount
     )
 
     //忽略标题
     val ignoreTitle = arrayOf(
         App.INSTANCE.getString(R.string.read_config),
         App.INSTANCE.getString(R.string.theme_mode),
-        App.INSTANCE.getString(R.string.bookshelf_layout)
+        App.INSTANCE.getString(R.string.bookshelf_layout),
+        App.INSTANCE.getString(R.string.show_rss),
+        App.INSTANCE.getString(R.string.thread_count)
     )
 
     //默认忽略keys
@@ -109,6 +116,9 @@ object Restore {
             fileToListT<Book>(path, "bookshelf.json")?.let {
                 App.db.bookDao().insert(*it.toTypedArray())
             }
+            fileToListT<Bookmark>(path, "bookmark.json")?.let {
+                App.db.bookmarkDao().insert(*it.toTypedArray())
+            }
             fileToListT<BookGroup>(path, "bookGroup.json")?.let {
                 App.db.bookGroupDao().insert(*it.toTypedArray())
             }
@@ -124,42 +134,84 @@ object Restore {
             fileToListT<ReplaceRule>(path, "replaceRule.json")?.let {
                 App.db.replaceRuleDao().insert(*it.toTypedArray())
             }
+            fileToListT<TxtTocRule>(path, "txtTocRule.json")?.let {
+                App.db.txtTocRule().insert(*it.toTypedArray())
+            }
+            fileToListT<ReadRecord>(path, "readRecord.json")?.let {
+                it.forEach { readRecord ->
+                    //判断是不是本机记录
+                    if (readRecord.androidId != App.androidId) {
+                        App.db.readRecordDao().insert(readRecord)
+                    } else {
+                        val time = App.db.readRecordDao()
+                            .getReadTime(readRecord.androidId, readRecord.bookName)
+                        if (time == null || time < readRecord.readTime) {
+                            App.db.readRecordDao().insert(readRecord)
+                        }
+                    }
+                }
+            }
+            fileToListT<HttpTTS>(path, "httpTTS.json")?.let {
+                App.db.httpTTSDao().insert(*it.toTypedArray())
+            }
         }
     }
 
     suspend fun restoreConfig(path: String = Backup.backupPath) {
         withContext(IO) {
+            try {
+                val file =
+                    FileUtils.createFileIfNotExist(path + File.separator + ThemeConfig.configFileName)
+                if (file.exists()) {
+                    FileUtils.deleteFile(ThemeConfig.configFilePath)
+                    file.copyTo(File(ThemeConfig.configFilePath))
+                    ThemeConfig.upConfig()
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
             if (!ignoreReadConfig) {
                 try {
                     val file =
-                        FileUtils.createFileIfNotExist(path + File.separator + ReadBookConfig.readConfigFileName)
-                    val configFile =
-                        FileUtils.getFile(App.INSTANCE.filesDir, ReadBookConfig.readConfigFileName)
+                        FileUtils.createFileIfNotExist(path + File.separator + ReadBookConfig.configFileName)
                     if (file.exists()) {
-                        file.copyTo(configFile, true)
-                        ReadBookConfig.upConfig()
+                        FileUtils.deleteFile(ReadBookConfig.configFilePath)
+                        file.copyTo(File(ReadBookConfig.configFilePath))
+                        ReadBookConfig.initConfigs()
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+                try {
+                    val file =
+                        FileUtils.createFileIfNotExist(path + File.separator + ReadBookConfig.shareConfigFileName)
+                    if (file.exists()) {
+                        FileUtils.deleteFile(ReadBookConfig.shareConfigFilePath)
+                        file.copyTo(File(ReadBookConfig.shareConfigFilePath))
+                        ReadBookConfig.initShareConfig()
                     }
                 } catch (e: Exception) {
                     e.printStackTrace()
                 }
             }
-            Preferences.getSharedPreferences(App.INSTANCE, path, "config")?.all
-                ?.let { map ->
-                    val edit = App.INSTANCE.defaultSharedPreferences.edit()
-                    map.forEach {
-                        if (keyIsNotIgnore(it.key)) {
-                            when (val value = it.value) {
-                                is Int -> edit.putInt(it.key, value)
-                                is Boolean -> edit.putBoolean(it.key, value)
-                                is Long -> edit.putLong(it.key, value)
-                                is Float -> edit.putFloat(it.key, value)
-                                is String -> edit.putString(it.key, value)
-                                else -> Unit
-                            }
+            Preferences.getSharedPreferences(App.INSTANCE, path, "config")?.all?.let { map ->
+                val edit = App.INSTANCE.defaultSharedPreferences.edit()
+                map.forEach {
+                    if (keyIsNotIgnore(it.key)) {
+                        when (val value = it.value) {
+                            is Int -> edit.putInt(it.key, value)
+                            is Boolean -> edit.putBoolean(it.key, value)
+                            is Long -> edit.putLong(it.key, value)
+                            is Float -> edit.putFloat(it.key, value)
+                            is String -> edit.putString(it.key, value)
+                            else -> Unit
                         }
                     }
-                    edit.apply()
                 }
+                edit.apply()
+                AppConfig.replaceEnableDefault =
+                    App.INSTANCE.getPrefBoolean(PreferKey.replaceEnableDefault, true)
+            }
             ReadBookConfig.apply {
                 styleSelect = App.INSTANCE.getPrefInt(PreferKey.readStyleSelect)
                 shareLayout = App.INSTANCE.getPrefBoolean(PreferKey.shareLayout)
@@ -173,11 +225,14 @@ object Restore {
             ReadBook.loadContent(resetPageOffset = false)
         }
         withContext(Main) {
-            App.INSTANCE.applyDayNight()
-            postEvent(EventBus.RECREATE, "true")
+            App.INSTANCE.toast(R.string.restore_success)
             if (!BuildConfig.DEBUG) {
                 LauncherIconHelp.changeIcon(App.INSTANCE.getPrefString(PreferKey.launcherIcon))
             }
+            LanguageUtils.setConfigurationOld(App.INSTANCE)
+            App.INSTANCE.applyDayNight()
+            postEvent(EventBus.SHOW_RSS, "")
+            postEvent(EventBus.RECREATE, "")
         }
     }
 
@@ -187,6 +242,8 @@ object Restore {
             readPrefKeys.contains(key) && ignoreReadConfig -> false
             PreferKey.themeMode == key && ignoreThemeMode -> false
             PreferKey.bookshelfLayout == key && ignoreBookshelfLayout -> false
+            PreferKey.showRss == key && ignoreShowRss -> false
+            PreferKey.threadCount == key && ignoreThreadCount -> false
             else -> true
         }
     }
@@ -197,6 +254,10 @@ object Restore {
         get() = ignoreConfig[PreferKey.themeMode] == true
     private val ignoreBookshelfLayout: Boolean
         get() = ignoreConfig[PreferKey.bookshelfLayout] == true
+    private val ignoreShowRss: Boolean
+        get() = ignoreConfig[PreferKey.showRss] == true
+    private val ignoreThreadCount: Boolean
+        get() = ignoreConfig[PreferKey.threadCount] == true
 
     fun saveIgnoreConfig() {
         val json = GSON.toJson(ignoreConfig)

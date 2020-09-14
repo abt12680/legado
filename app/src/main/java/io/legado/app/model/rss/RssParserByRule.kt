@@ -8,6 +8,7 @@ import io.legado.app.data.entities.RssSource
 import io.legado.app.model.Debug
 import io.legado.app.model.analyzeRule.AnalyzeRule
 import io.legado.app.utils.NetworkUtils
+import java.util.*
 
 @Keep
 object RssParserByRule {
@@ -43,9 +44,13 @@ object RssParserByRule {
             Debug.log(sourceUrl, "└列表大小:${collections.size}")
             if (!rssSource.ruleNextPage.isNullOrEmpty()) {
                 Debug.log(sourceUrl, "┌获取下一页链接")
-                nextUrl = analyzeRule.getString(rssSource.ruleNextPage)
-                if (nextUrl.isNotEmpty()) {
-                    nextUrl = NetworkUtils.getAbsoluteURL(sortUrl, nextUrl)
+                if (rssSource.ruleNextPage!!.toUpperCase(Locale.getDefault()) == "PAGE") {
+                    nextUrl = sortUrl
+                } else {
+                    nextUrl = analyzeRule.getString(rssSource.ruleNextPage)
+                    if (nextUrl.isNotEmpty()) {
+                        nextUrl = NetworkUtils.getAbsoluteURL(sortUrl, nextUrl)
+                    }
                 }
                 Debug.log(sourceUrl, "└$nextUrl")
             }
@@ -102,7 +107,7 @@ object RssParserByRule {
         rssArticle.image = analyzeRule.getString(ruleImage, true)
         Debug.log(sourceUrl, "└${rssArticle.image}", log)
         Debug.log(sourceUrl, "┌获取文章链接", log)
-        rssArticle.link = analyzeRule.getString(ruleLink)
+        rssArticle.link = NetworkUtils.getAbsoluteURL(sourceUrl, analyzeRule.getString(ruleLink))!!
         Debug.log(sourceUrl, "└${rssArticle.link}", log)
         if (rssArticle.title.isBlank()) {
             return null

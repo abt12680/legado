@@ -1,14 +1,12 @@
 package io.legado.app.ui.book.read.page.provider
 
 import android.graphics.Bitmap
-import io.legado.app.App
 import io.legado.app.data.entities.Book
-import io.legado.app.help.http.HttpHelper
+import io.legado.app.help.BookHelp
 import io.legado.app.model.localBook.EPUBFile
 import io.legado.app.utils.BitmapUtils
 import io.legado.app.utils.FileUtils
-import io.legado.app.utils.MD5Utils
-import io.legado.app.utils.externalFilesDir
+import kotlinx.coroutines.runBlocking
 import java.io.FileOutputStream
 import java.util.concurrent.ConcurrentHashMap
 
@@ -31,26 +29,22 @@ object ImageProvider {
         indexCache[src] = bitmap
     }
 
-    fun getImage(book: Book, chapterIndex: Int, src: String): Bitmap? {
+    fun getImage(book: Book, chapterIndex: Int, src: String, onUi: Boolean = false): Bitmap? {
         getCache(chapterIndex, src)?.let {
             return it
         }
-        val vFile = FileUtils.getFile(
-            App.INSTANCE.externalFilesDir,
-            "${MD5Utils.md5Encode16(src)}${src.substringAfterLast(".")}",
-            "images", book.name
-        )
+        val vFile = BookHelp.getImage(book, src)
         if (!vFile.exists()) {
             if (book.isEpub()) {
-                EPUBFile.getImage(book, src).use {
-                    val out = FileOutputStream(FileUtils.createFileIfNotExist(vFile.absolutePath))
-                    it?.copyTo(out)
-                    out.flush()
-                    out.close()
+                EPUBFile.getImage(book, src)?.use { input ->
+                    val newFile = FileUtils.createFileIfNotExist(vFile.absolutePath)
+                    FileOutputStream(newFile).use { output ->
+                        input.copyTo(output)
+                    }
                 }
-            } else {
-                HttpHelper.getBytes(src, src)?.let {
-                    FileUtils.createFileIfNotExist(vFile.absolutePath).writeBytes(it)
+            } else if (!onUi) {
+                runBlocking {
+                    BookHelp.saveImage(book, src)
                 }
             }
         }
@@ -68,7 +62,7 @@ object ImageProvider {
     }
 
     fun clearAllCache() {
-        cache.forEach {indexCache->
+        cache.forEach { indexCache ->
             indexCache.value.forEach {
                 it.value.recycle()
             }
@@ -77,7 +71,7 @@ object ImageProvider {
     }
 
     fun clearOut(chapterIndex: Int) {
-        cache.forEach {indexCache->
+        cache.forEach { indexCache ->
             if (indexCache.key !in chapterIndex - 1..chapterIndex + 1) {
                 indexCache.value.forEach {
                     it.value.recycle()

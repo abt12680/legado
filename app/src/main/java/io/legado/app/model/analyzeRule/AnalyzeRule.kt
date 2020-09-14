@@ -376,8 +376,7 @@ class AnalyzeRule(var book: BaseBook? = null) : JsExtensions {
         val jsMatcher = JS_PATTERN.matcher(vRuleStr)
         while (jsMatcher.find()) {
             if (jsMatcher.start() > start) {
-                tmp = vRuleStr.substring(start, jsMatcher.start()).replace("\n", "")
-                    .trim { it <= ' ' }
+                tmp = vRuleStr.substring(start, jsMatcher.start()).trim { it <= ' ' }
                 if (!TextUtils.isEmpty(tmp)) {
                     ruleList.add(SourceRule(tmp, mMode))
                 }
@@ -386,7 +385,7 @@ class AnalyzeRule(var book: BaseBook? = null) : JsExtensions {
             start = jsMatcher.end()
         }
         if (vRuleStr.length > start) {
-            tmp = vRuleStr.substring(start).replace("\n", "").trim { it <= ' ' }
+            tmp = vRuleStr.substring(start).trim { it <= ' ' }
             if (!TextUtils.isEmpty(tmp)) {
                 ruleList.add(SourceRule(tmp, mMode))
             }
@@ -581,6 +580,14 @@ class AnalyzeRule(var book: BaseBook? = null) : JsExtensions {
     }
 
     fun get(key: String): String {
+        when (key) {
+            "bookName" -> book?.let {
+                return it.name
+            }
+            "title" -> chapter?.let {
+                return it.title
+            }
+        }
         return chapter?.variableMap?.get(key)
             ?: book?.variableMap?.get(key)
             ?: ""
@@ -589,19 +596,15 @@ class AnalyzeRule(var book: BaseBook? = null) : JsExtensions {
     /**
      * 执行JS
      */
-    @Throws(Exception::class)
     private fun evalJS(jsStr: String, result: Any?): Any? {
-        try {
-            val bindings = SimpleBindings()
-            bindings["java"] = this
-            bindings["book"] = book
-            bindings["result"] = result
-            bindings["baseUrl"] = baseUrl
-            return SCRIPT_ENGINE.eval(jsStr, bindings)
-        } catch (e: Exception) {
-            e.printStackTrace()
-            throw e
-        }
+        val bindings = SimpleBindings()
+        bindings["java"] = this
+        bindings["book"] = book
+        bindings["result"] = result
+        bindings["baseUrl"] = baseUrl
+        bindings["chapter"] = chapter
+        bindings["title"] = chapter?.title
+        return SCRIPT_ENGINE.eval(jsStr, bindings)
     }
 
     /**
@@ -609,7 +612,7 @@ class AnalyzeRule(var book: BaseBook? = null) : JsExtensions {
      */
     override fun ajax(urlStr: String): String? {
         return try {
-            val analyzeUrl = AnalyzeUrl(urlStr, null, null, null, baseUrl, book)
+            val analyzeUrl = AnalyzeUrl(urlStr, baseUrl = baseUrl, book = book)
             val call = analyzeUrl.getResponse(urlStr)
             val response = call.execute()
             response.body()

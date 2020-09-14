@@ -6,8 +6,9 @@ import io.legado.app.App
 import io.legado.app.R
 import io.legado.app.constant.IntentAction
 import io.legado.app.data.entities.BookSource
+import io.legado.app.data.entities.SearchBook
 import io.legado.app.help.coroutine.Coroutine
-import io.legado.app.model.WebBook
+import io.legado.app.model.webBook.WebBook
 import io.legado.app.service.CheckSourceService
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -49,7 +50,10 @@ class CheckSource(val source: BookSource) {
         onNext: (sourceUrl: String) -> Unit
     ): Coroutine<*> {
         val webBook = WebBook(source)
-        return webBook.searchBook(keyword, scope = scope, context = context)
+        val variableBook = SearchBook(origin = source.bookSourceUrl)
+        return webBook
+            .searchBook(keyword, scope = scope, context = context, variableBook = variableBook)
+            .timeout(60000L)
             .onError(Dispatchers.IO) {
                 source.addGroup("失效")
                 App.db.bookSourceDao().update(source)

@@ -8,17 +8,18 @@ import android.view.View
 import androidx.preference.EditTextPreference
 import androidx.preference.ListPreference
 import androidx.preference.Preference
-import androidx.preference.PreferenceFragmentCompat
 import io.legado.app.R
+import io.legado.app.base.BasePreferenceFragment
 import io.legado.app.constant.PreferKey
 import io.legado.app.help.storage.Restore
 import io.legado.app.lib.dialogs.alert
 import io.legado.app.lib.theme.ATH
 import io.legado.app.lib.theme.accentColor
 import io.legado.app.ui.filechooser.FileChooserDialog
+import io.legado.app.utils.applyTint
 import io.legado.app.utils.getPrefString
 
-class BackupConfigFragment : PreferenceFragmentCompat(),
+class BackupConfigFragment : BasePreferenceFragment(),
     SharedPreferences.OnSharedPreferenceChangeListener,
     FileChooserDialog.CallBack {
 
@@ -46,6 +47,8 @@ class BackupConfigFragment : PreferenceFragmentCompat(),
         upPreferenceSummary(PreferKey.webDavAccount, getPrefString(PreferKey.webDavAccount))
         upPreferenceSummary(PreferKey.webDavPassword, getPrefString(PreferKey.webDavPassword))
         upPreferenceSummary(PreferKey.backupPath, getPrefString(PreferKey.backupPath))
+        findPreference<io.legado.app.ui.widget.prefs.Preference>("web_dav_restore")
+            ?.onLongClick = { BackupRestoreUi.restoreByFolder(this) }
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
@@ -114,6 +117,7 @@ class BackupConfigFragment : PreferenceFragmentCompat(),
         return super.onPreferenceTreeClick(preference)
     }
 
+
     private fun restoreIgnore() {
         val checkedItems = BooleanArray(Restore.ignoreKeys.size) {
             Restore.ignoreConfig[Restore.ignoreKeys[it]] ?: false
@@ -122,9 +126,11 @@ class BackupConfigFragment : PreferenceFragmentCompat(),
             multiChoiceItems(Restore.ignoreTitle, checkedItems) { _, which, isChecked ->
                 Restore.ignoreConfig[Restore.ignoreKeys[which]] = isChecked
             }
-        }.show().setOnDismissListener {
-            Restore.saveIgnoreConfig()
-        }
+        }.show()
+            .applyTint()
+            .setOnDismissListener {
+                Restore.saveIgnoreConfig()
+            }
     }
 
     override fun onFilePicked(requestCode: Int, currentPath: String) {

@@ -11,24 +11,26 @@ import androidx.appcompat.widget.PopupMenu
 import androidx.appcompat.widget.SearchView
 import androidx.documentfile.provider.DocumentFile
 import androidx.lifecycle.LiveData
-import androidx.lifecycle.Observer
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.LinearLayoutManager
-import com.google.android.material.snackbar.Snackbar
 import io.legado.app.App
 import io.legado.app.R
 import io.legado.app.base.VMBaseActivity
+import io.legado.app.constant.AppPattern
 import io.legado.app.data.entities.RssSource
-import io.legado.app.help.ItemTouchCallback
+import io.legado.app.help.IntentDataHelp
 import io.legado.app.lib.dialogs.*
 import io.legado.app.lib.theme.ATH
 import io.legado.app.lib.theme.primaryTextColor
+import io.legado.app.ui.association.ImportRssSourceActivity
 import io.legado.app.ui.filechooser.FileChooserDialog
 import io.legado.app.ui.filechooser.FilePicker
 import io.legado.app.ui.qrcode.QrCodeActivity
 import io.legado.app.ui.rss.source.edit.RssSourceEditActivity
 import io.legado.app.ui.widget.SelectActionBar
+import io.legado.app.ui.widget.recycler.DragSelectTouchHelper
+import io.legado.app.ui.widget.recycler.ItemTouchCallback
 import io.legado.app.ui.widget.recycler.VerticalDivider
 import io.legado.app.ui.widget.text.AutoCompleteTextView
 import io.legado.app.utils.*
@@ -60,7 +62,6 @@ class RssSourceActivity : VMBaseActivity<RssSourceViewModel>(R.layout.activity_r
     private var groupMenu: SubMenu? = null
 
     override fun onActivityCreated(savedInstanceState: Bundle?) {
-        initUriScheme()
         initRecyclerView()
         initSearchView()
         initLiveDataGroup()
@@ -83,19 +84,14 @@ class RssSourceActivity : VMBaseActivity<RssSourceViewModel>(R.layout.activity_r
         when (item.itemId) {
             R.id.menu_add -> startActivity<RssSourceEditActivity>()
             R.id.menu_import_source_local -> FilePicker
-                .selectFile(
-                    this,
-                    importRequestCode,
-                    type = arrayOf("text/*", "application/json"),
-                    allowExtensions = arrayOf("txt", "json")
-                )
+                .selectFile(this, importRequestCode, allowExtensions = arrayOf("txt", "json"))
             R.id.menu_import_source_onLine -> showImportDialog()
             R.id.menu_import_source_qr -> startActivityForResult<QrCodeActivity>(qrRequestCode)
             R.id.menu_group_manage -> GroupManageDialog()
                 .show(supportFragmentManager, "rssGroupManage")
-        }
-        if (item.groupId == R.id.source_group) {
-            search_view.setQuery(item.title, true)
+            else -> if (item.groupId == R.id.source_group) {
+                search_view.setQuery(item.title, true)
+            }
         }
         return super.onCompatOptionsItemSelected(item)
     }
@@ -112,29 +108,6 @@ class RssSourceActivity : VMBaseActivity<RssSourceViewModel>(R.layout.activity_r
         return true
     }
 
-    private fun initUriScheme() {
-        intent.data?.let {
-            when (it.path) {
-                "/importonline" -> it.getQueryParameter("src")?.let { url ->
-                    Snackbar.make(title_bar, R.string.importing, Snackbar.LENGTH_INDEFINITE).show()
-                    if (url.startsWith("http", false)){
-                        viewModel.importSource(url) { msg ->
-                            title_bar.snackbar(msg)
-                        }
-                    }
-                    else{
-                        viewModel.importSourceFromFilePath(url) { msg ->
-                            title_bar.snackbar(msg)
-                        }
-                    }
-                }
-                else -> {
-                    toast("格式不对")
-                }
-            }
-        }
-    }
-
     private fun initRecyclerView() {
         ATH.applyEdgeEffectColor(recycler_view)
         recycler_view.layoutManager = LinearLayoutManager(this)
@@ -144,6 +117,13 @@ class RssSourceActivity : VMBaseActivity<RssSourceViewModel>(R.layout.activity_r
         val itemTouchCallback = ItemTouchCallback()
         itemTouchCallback.onItemTouchCallbackListener = adapter
         itemTouchCallback.isCanDrag = true
+        val dragSelectTouchHelper: DragSelectTouchHelper =
+            DragSelectTouchHelper(adapter.initDragSelectTouchHelperCallback()).setSlideArea(16, 50)
+        dragSelectTouchHelper.attachToRecyclerView(recycler_view)
+        // When this page is opened, it is in selection mode
+        dragSelectTouchHelper.activeSlideSelect()
+
+        // Note: need judge selection first, so add ItemTouchHelper after it.
         ItemTouchHelper(itemTouchCallback).attachToRecyclerView(recycler_view)
     }
 
@@ -165,10 +145,10 @@ class RssSourceActivity : VMBaseActivity<RssSourceViewModel>(R.layout.activity_r
     }
 
     private fun initLiveDataGroup() {
-        App.db.rssSourceDao().liveGroup().observe(this, Observer {
+        App.db.rssSourceDao().liveGroup().observe(this, {
             groups.clear()
             it.map { group ->
-                groups.addAll(group.splitNotBlank(",", ";"))
+                groups.addAll(group.splitNotBlank(AppPattern.splitGroupRegex))
             }
             upGroupMenu()
         })
@@ -218,7 +198,7 @@ class RssSourceActivity : VMBaseActivity<RssSourceViewModel>(R.layout.activity_r
             } else {
                 App.db.rssSourceDao().liveSearch("%$key%")
             }
-        sourceLiveData?.observe(this, Observer {
+        sourceLiveData?.observe(this, {
             val diffResult = DiffUtil
                 .calculateDiff(DiffCallBack(adapter.getItems(), it))
             adapter.setItems(it, diffResult)
@@ -256,10 +236,7 @@ class RssSourceActivity : VMBaseActivity<RssSourceViewModel>(R.layout.activity_r
                         cacheUrls.add(0, it)
                         aCache.put(importRecordKey, cacheUrls.joinToString(","))
                     }
-                    Snackbar.make(title_bar, R.string.importing, Snackbar.LENGTH_INDEFINITE).show()
-                    viewModel.importSource(it) { msg ->
-                        title_bar.snackbar(msg)
-                    }
+                    startActivity<ImportRssSourceActivity>("source" to it)
                 }
             }
             cancelButton()
@@ -269,10 +246,7 @@ class RssSourceActivity : VMBaseActivity<RssSourceViewModel>(R.layout.activity_r
     override fun onFilePicked(requestCode: Int, currentPath: String) {
         when (requestCode) {
             importRequestCode -> {
-                Snackbar.make(title_bar, R.string.importing, Snackbar.LENGTH_INDEFINITE).show()
-                viewModel.importSourceFromFilePath(currentPath) { msg ->
-                    title_bar.snackbar(msg)
-                }
+                startActivity<ImportRssSourceActivity>("filePath" to currentPath)
             }
             exportRequestCode -> viewModel.exportSelection(
                 adapter.getSelection(),
@@ -288,23 +262,17 @@ class RssSourceActivity : VMBaseActivity<RssSourceViewModel>(R.layout.activity_r
                 data?.data?.let { uri ->
                     try {
                         uri.readText(this)?.let {
-                            Snackbar.make(title_bar, R.string.importing, Snackbar.LENGTH_INDEFINITE)
-                                .show()
-                            viewModel.importSource(it) { msg ->
-                                title_bar.snackbar(msg)
-                            }
+                            val dataKey = IntentDataHelp.putData(it)
+                            startActivity<ImportRssSourceActivity>("dataKey" to dataKey)
                         }
                     } catch (e: Exception) {
-                        toast(e.localizedMessage ?: "ERROR")
+                        toast("readTextError:${e.localizedMessage}")
                     }
                 }
             }
             qrRequestCode -> if (resultCode == RESULT_OK) {
                 data?.getStringExtra("result")?.let {
-                    Snackbar.make(title_bar, R.string.importing, Snackbar.LENGTH_INDEFINITE)
-                    viewModel.importSource(it) { msg ->
-                        title_bar.snackbar(msg)
-                    }
+                    startActivity<ImportRssSourceActivity>("source" to it)
                 }
             }
             exportRequestCode -> if (resultCode == RESULT_OK) {

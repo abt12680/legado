@@ -1,13 +1,13 @@
 package io.legado.app.model
 
 import android.annotation.SuppressLint
-import io.legado.app.data.entities.Book
-import io.legado.app.data.entities.BookChapter
-import io.legado.app.data.entities.RssArticle
-import io.legado.app.data.entities.RssSource
+import io.legado.app.data.entities.*
 import io.legado.app.help.coroutine.CompositeCoroutine
+import io.legado.app.model.rss.Rss
+import io.legado.app.model.webBook.WebBook
 import io.legado.app.utils.htmlFormat
 import io.legado.app.utils.isAbsUrl
+import io.legado.app.utils.msg
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -55,7 +55,7 @@ object Debug {
         debugSource = rssSource.sourceUrl
         log(debugSource, "︾开始解析")
         val sort = rssSource.sortUrls().entries.first()
-        Rss.getArticles(sort.key, sort.value, rssSource, null)
+        Rss.getArticles(sort.key, sort.value, rssSource, 1)
             .onSuccess {
                 if (it.articles.isEmpty()) {
                     log(debugSource, "⇒列表页解析成功，为空")
@@ -77,7 +77,7 @@ object Debug {
                 }
             }
             .onError {
-                log(debugSource, it.localizedMessage, state = -1)
+                log(debugSource, it.msg, state = -1)
             }
     }
 
@@ -89,7 +89,7 @@ object Debug {
                 log(debugSource, "︽内容页解析完成", state = 1000)
             }
             .onError {
-                log(debugSource, it.localizedMessage, state = -1)
+                log(debugSource, it.msg, state = -1)
             }
     }
 
@@ -137,7 +137,8 @@ object Debug {
 
     private fun exploreDebug(webBook: WebBook, url: String) {
         log(debugSource, "︾开始解析发现页")
-        val explore = webBook.exploreBook(url, 1)
+        val variableBook = SearchBook()
+        val explore = webBook.exploreBook(url, 1, variableBook)
             .onSuccess { exploreBooks ->
                 if (exploreBooks.isNotEmpty()) {
                     log(debugSource, "︽发现页解析完成")
@@ -148,18 +149,15 @@ object Debug {
                 }
             }
             .onError {
-                log(
-                    debugSource,
-                    it.localizedMessage,
-                    state = -1
-                )
+                log(debugSource, it.msg, state = -1)
             }
         tasks.add(explore)
     }
 
     private fun searchDebug(webBook: WebBook, key: String) {
         log(debugSource, "︾开始解析搜索页")
-        val search = webBook.searchBook(key, 1)
+        val variableBook = SearchBook()
+        val search = webBook.searchBook(key, 1, variableBook)
             .onSuccess { searchBooks ->
                 if (searchBooks.isNotEmpty()) {
                     log(debugSource, "︽搜索页解析完成")
@@ -170,7 +168,7 @@ object Debug {
                 }
             }
             .onError {
-                log(debugSource, it.localizedMessage, state = -1)
+                log(debugSource, it.msg, state = -1)
             }
         tasks.add(search)
     }
@@ -184,7 +182,7 @@ object Debug {
                 tocDebug(webBook, book)
             }
             .onError {
-                log(debugSource, it.localizedMessage, state = -1)
+                log(debugSource, it.msg, state = -1)
             }
         tasks.add(info)
     }
@@ -203,7 +201,7 @@ object Debug {
                 }
             }
             .onError {
-                log(debugSource, it.localizedMessage, state = -1)
+                log(debugSource, it.msg, state = -1)
             }
         tasks.add(chapterList)
     }
@@ -220,7 +218,7 @@ object Debug {
                 log(debugSource, "︽正文页解析完成", state = 1000)
             }
             .onError {
-                log(debugSource, it.localizedMessage, state = -1)
+                log(debugSource, it.msg, state = -1)
             }
         tasks.add(content)
     }

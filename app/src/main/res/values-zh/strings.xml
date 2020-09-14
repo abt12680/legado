@@ -28,6 +28,7 @@
     <string name="draw">提醒</string>
     <string name="edit">编辑</string>
     <string name="delete">删除</string>
+    <string name="delete_all">删除所有</string>
     <string name="replace">替换</string>
     <string name="replace_purify">替换净化</string>
     <string name="replace_purify_desc">配置替换净化规则</string>
@@ -84,15 +85,15 @@
     <string name="web_service_desc">启用Web服务</string>
     <string name="web_edit_source">web编辑书源</string>
     <string name="http_ip">http://%1$s:%2$d</string>
-    <string name="download_offline">离线下载</string>
-    <string name="download_offline_t">离线下载</string>
-    <string name="download_offline_s">下载选择的章节到本地</string>
+    <string name="offline_cache">离线缓存</string>
+    <string name="offline_cache_t">离线缓存</string>
+    <string name="offline_cache_s">缓存选择的章节到本地</string>
     <string name="change_origin">换源</string>
     <string name="about_description">
         \u3000\u3000这是一款使用Kotlin全新开发的开源的阅读软件，欢迎您的加入。关注公众号[开源阅读]！
     </string>
     <string name="app_share_description">
-        阅读3.0下载地址：\nhttps://play.google.com/store/apps/details?id=io.legado.app
+        阅读3.0下载地址：\nhttps://www.coolapk.com/apk/256030
     </string>
     <string name="version_name">Version %s</string>
     <string name="pt_auto_refresh">自动刷新</string>
@@ -162,7 +163,7 @@
     <string name="author">作者</string>
     <string name="author_show">作者: %s</string>
     <string name="aloud_stop">朗读停止</string>
-    <string name="clear_cache">清除缓存</string>
+    <string name="clear_cache">清理缓存</string>
     <string name="clear_cache_success">成功清理缓存</string>
     <string name="action_save">保存</string>
     <string name="edit_source">编辑源</string>
@@ -321,10 +322,9 @@
     <string name="book_info_edit">书籍信息编辑</string>
     <string name="ps_default_read">默认打开书架</string>
     <string name="pt_default_read">自动跳转最近阅读</string>
-    <string name="use_to">替换范围，选填书名或者源名</string>
+    <string name="use_to">替换范围，选填书名或者书源url</string>
     <string name="menu_action_group">分组</string>
     <string name="download_path">内容缓存路径</string>
-    <string name="cleanCache">清理缓存</string>
     <string name="sys_file_picker">系统文件选择器</string>
     <string name="new_version">新版本</string>
     <string name="download_update">下载更新</string>
@@ -386,6 +386,7 @@
     <string name="source_group">源分组(sourceGroup)</string>
     <string name="sort_url">分类Url</string>
     <string name="login_url">登录URL(loginUrl)</string>
+    <string name="comment">源注释(sourceComment)</string>
     <string name="r_search_url">搜索地址(url)</string>
     <string name="r_find_url">发现地址规则(url)</string>
     <string name="r_book_list">书籍列表规则(bookList)</string>
@@ -443,13 +444,12 @@
     <string name="source_http_header">请求头(header)</string>
     <string name="debug_source">调试源</string>
     <string name="import_by_qr_code">二维码导入</string>
+    <string name="share_selected_source">分享选中书源</string>
     <string name="scan_qr_code">扫描二维码</string>
     <string name="click_on_selected_show_menu">选中时点击可弹出菜单</string>
     <string name="theme">主题</string>
     <string name="theme_mode">主题模式</string>
     <string name="theme_mode_desc">选择主题模式</string>
-    <string name="default_theme">默认主题</string>
-    <string name="restore_default_theme">恢复主题为默认配色</string>
     <string name="join_qq_group">加入QQ群</string>
     <string name="bg_image_per">获取背景图片需存储权限</string>
     <string name="input_book_source_url">输入书源网址</string>
@@ -545,7 +545,7 @@
     <string name="timer_m">%d分钟</string>
     <string name="brightness_auto">自动亮度%s</string>
     <string name="read_aloud_by_page">按页朗读</string>
-    <string name="read_aloud_on_line">在线朗读</string>
+    <string name="speak_engine">朗读引擎</string>
     <string name="bg_image">背景图片</string>
     <string name="bg_color">背景颜色</string>
     <string name="text_color">文字颜色</string>
@@ -555,6 +555,7 @@
     <string name="group_edit">编辑分组</string>
     <string name="move_to_group">移入分组</string>
     <string name="add_group">添加分组</string>
+    <string name="remove_group">移除分组</string>
     <string name="add_replace_rule">新建替换</string>
     <string name="group">分组</string>
     <string name="group_s">分组: %s</string>
@@ -703,7 +704,7 @@
     <string name="auto_page_speed">自动翻页速度</string>
     <string name="sort_by_url">地址排序</string>
     <string name="backup_summary">本地和WebDav一起备份</string>
-    <string name="restore_summary">优先从WebDav恢复,失败时从本地恢复</string>
+    <string name="restore_summary">优先从WebDav恢复,长按从本地恢复</string>
     <string name="import_old_summary">选择旧版备份文件夹</string>
     <string name="enabled">已启用</string>
     <string name="disabled">已禁用</string>
@@ -728,4 +729,37 @@
     <string name="rule_replace_regex">替换规则(replaceRegex)</string>
     <string name="group_name">分组名称</string>
     <string name="note_content">备注内容</string>
+    <string name="e_ink_change_bg">E-Ink模式下只有白纸黑字,不显示其它背景</string>
+    <string name="replace_enable_default_t">默认启用替换净化</string>
+    <string name="replace_enable_default_s">新加入书架的书是否启用替换净化</string>
+    <string name="select_restore_file">选择恢复文件</string>
+    <string name="day_background_too_dark">白天背景不能太暗</string>
+    <string name="day_bottom_bar_too_dark">白天底栏不能太暗</string>
+    <string name="night_background_too_light">夜间背景不能太亮</string>
+    <string name="night_bottom_bar_too_light">夜间底栏不能太亮</string>
+    <string name="accent_background_diff">强调色不能和背景颜色相似</string>
+    <string name="accent_text_diff">强调色不能和文字颜色相似</string>
+    <string name="wrong_format">格式不对</string>
+    <string name="error">错误</string>
+    <string name="show_brightness_view">显示亮度调节控件</string>
+    <string name="language">语言</string>
+    <string name="import_rss_source">导入订阅源</string>
+    <string name="donate_summary">您的支持是我更新的动力</string>
+    <string name="about_summary">公众号[开源阅读软件]</string>
+    <string name="read_record">阅读记录</string>
+    <string name="read_record_summary">阅读时间记录</string>
+    <string name="local_tts">本地TTS</string>
+    <string name="thread_count">线程数</string>
+    <string name="all_read_time">总阅读时间</string>
+    <string name="un_select_all">全不选</string>
+    <string name="import_str">导入</string>
+    <string name="export_str">导出</string>
+    <string name="save_theme_config">保存主题配置</string>
+    <string name="save_day_theme_summary">保存白天主题配置以共调用和分享</string>
+    <string name="save_night_theme_summary">保存夜间主题配置以共调用和分享</string>
+    <string name="theme_list">主题列表</string>
+    <string name="theme_list_summary">使用保存主题,导入,分享主题</string>
+    <string name="select_theme">切换默认主题</string>
+    <string name="sort_by_lastUppdateTime">时间排序</string>
+
 </resources>

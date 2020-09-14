@@ -11,15 +11,19 @@ import android.view.View
 import androidx.documentfile.provider.DocumentFile
 import androidx.preference.ListPreference
 import androidx.preference.Preference
-import androidx.preference.PreferenceFragmentCompat
 import io.legado.app.App
 import io.legado.app.R
+import io.legado.app.base.BasePreferenceFragment
 import io.legado.app.constant.EventBus
 import io.legado.app.constant.PreferKey
 import io.legado.app.help.AppConfig
 import io.legado.app.help.BookHelp
 import io.legado.app.help.permission.Permissions
 import io.legado.app.help.permission.PermissionsCompat
+import io.legado.app.lib.dialogs.alert
+import io.legado.app.lib.dialogs.noButton
+import io.legado.app.lib.dialogs.okButton
+import io.legado.app.lib.dialogs.selector
 import io.legado.app.lib.theme.ATH
 import io.legado.app.receiver.SharedReceiverActivity
 import io.legado.app.service.WebService
@@ -29,7 +33,7 @@ import io.legado.app.utils.*
 import java.io.File
 
 
-class OtherConfigFragment : PreferenceFragmentCompat(),
+class OtherConfigFragment : BasePreferenceFragment(),
     SharedPreferences.OnSharedPreferenceChangeListener {
 
     private val requestCodeCover = 231
@@ -78,16 +82,17 @@ class OtherConfigFragment : PreferenceFragmentCompat(),
                 .show {
                     putPrefInt(PreferKey.webPort, it)
                 }
-            PreferKey.cleanCache -> {
-                BookHelp.clearCache()
-                FileUtils.deleteFile(requireActivity().cacheDir.absolutePath)
-                toast(R.string.clear_cache_success)
-            }
-            PreferKey.defaultCover -> {
-                val intent = Intent(Intent.ACTION_GET_CONTENT)
-                intent.addCategory(Intent.CATEGORY_OPENABLE)
-                intent.type = "image/*"
-                startActivityForResult(intent, requestCodeCover)
+            PreferKey.cleanCache -> clearCache()
+            PreferKey.defaultCover -> if (getPrefString(PreferKey.defaultCover).isNullOrEmpty()) {
+                selectDefaultCover()
+            } else {
+                selector(items = arrayListOf("删除图片", "选择图片")) { _, i ->
+                    if (i == 0) {
+                        removePref(PreferKey.defaultCover)
+                    } else {
+                        selectDefaultCover()
+                    }
+                }
             }
         }
         return super.onPreferenceTreeClick(preference)
@@ -95,9 +100,10 @@ class OtherConfigFragment : PreferenceFragmentCompat(),
 
     override fun onSharedPreferenceChanged(sharedPreferences: SharedPreferences?, key: String?) {
         when (key) {
-            PreferKey.threadCount -> upPreferenceSummary(
-                key, AppConfig.threadCount.toString()
-            )
+            PreferKey.threadCount -> {
+                upPreferenceSummary(key, AppConfig.threadCount.toString())
+                postEvent(PreferKey.threadCount, "")
+            }
             PreferKey.webPort -> {
                 upPreferenceSummary(key, webPort.toString())
                 if (WebService.isRun) {
@@ -109,11 +115,17 @@ class OtherConfigFragment : PreferenceFragmentCompat(),
             PreferKey.processText -> sharedPreferences?.let {
                 setProcessTextEnable(it.getBoolean(key, true))
             }
-            PreferKey.showRss -> postEvent(EventBus.SHOW_RSS, "unused")
+            PreferKey.showRss -> postEvent(EventBus.SHOW_RSS, "")
             PreferKey.defaultCover -> upPreferenceSummary(
                 key,
                 getPrefString(PreferKey.defaultCover)
             )
+            PreferKey.replaceEnableDefault -> AppConfig.replaceEnableDefault =
+                App.INSTANCE.getPrefBoolean(PreferKey.replaceEnableDefault, true)
+            PreferKey.language -> {
+                LanguageUtils.setConfigurationOld(App.INSTANCE)
+                postEvent(EventBus.RECREATE, "")
+            }
         }
     }
 
@@ -130,6 +142,25 @@ class OtherConfigFragment : PreferenceFragmentCompat(),
                 preference.summary = value
             }
         }
+    }
+
+    private fun clearCache() {
+        requireContext().alert(titleResource = R.string.clear_cache,
+            messageResource = R.string.sure_del) {
+            okButton {
+                BookHelp.clearCache()
+                FileUtils.deleteFile(requireActivity().cacheDir.absolutePath)
+                toast(R.string.clear_cache_success)
+            }
+            noButton()
+        }.show().applyTint()
+    }
+
+    private fun selectDefaultCover() {
+        val intent = Intent(Intent.ACTION_GET_CONTENT)
+        intent.addCategory(Intent.CATEGORY_OPENABLE)
+        intent.type = "image/*"
+        startActivityForResult(intent, requestCodeCover)
     }
 
     private fun isProcessTextEnabled(): Boolean {
@@ -155,7 +186,7 @@ class OtherConfigFragment : PreferenceFragmentCompat(),
             val doc = DocumentFile.fromSingleUri(requireContext(), uri)
             doc?.name?.let {
                 var file = requireContext().externalFilesDir
-                file = FileUtils.createFileIfNotExist(file, it, "covers")
+                file = FileUtils.createFileIfNotExist(file, "covers", it)
                 kotlin.runCatching {
                     DocumentUtils.readBytes(requireContext(), doc.uri)
                 }.getOrNull()?.let { byteArray ->
@@ -176,7 +207,7 @@ class OtherConfigFragment : PreferenceFragmentCompat(),
                         val imgFile = File(path)
                         if (imgFile.exists()) {
                             var file = requireContext().externalFilesDir
-                            file = FileUtils.createFileIfNotExist(file, imgFile.name, "covers")
+                            file = FileUtils.createFileIfNotExist(file, "covers", imgFile.name)
                             file.writeBytes(imgFile.readBytes())
                             putPrefString(PreferKey.defaultCover, file.absolutePath)
                             CoverImageView.upDefaultCover()

@@ -5,7 +5,6 @@ import android.view.Menu
 import android.view.MenuItem
 import androidx.appcompat.widget.PopupMenu
 import androidx.lifecycle.LiveData
-import androidx.lifecycle.Observer
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.LinearLayoutManager
 import io.legado.app.App
@@ -15,7 +14,6 @@ import io.legado.app.constant.AppConst
 import io.legado.app.constant.PreferKey
 import io.legado.app.data.entities.Book
 import io.legado.app.data.entities.BookGroup
-import io.legado.app.help.ItemTouchCallback
 import io.legado.app.lib.dialogs.alert
 import io.legado.app.lib.dialogs.noButton
 import io.legado.app.lib.dialogs.okButton
@@ -23,6 +21,7 @@ import io.legado.app.lib.theme.ATH
 import io.legado.app.ui.book.group.GroupManageDialog
 import io.legado.app.ui.book.group.GroupSelectDialog
 import io.legado.app.ui.widget.SelectActionBar
+import io.legado.app.ui.widget.recycler.ItemTouchCallback
 import io.legado.app.ui.widget.recycler.VerticalDivider
 import io.legado.app.utils.applyTint
 import io.legado.app.utils.getPrefInt
@@ -94,7 +93,7 @@ class ArrangeBookActivity : VMBaseActivity<ArrangeBookViewModel>(R.layout.activi
     private fun initGroupData() {
         groupLiveData?.removeObservers(this)
         groupLiveData = App.db.bookGroupDao().liveDataAll()
-        groupLiveData?.observe(this, Observer {
+        groupLiveData?.observe(this, {
             groupList.clear()
             groupList.addAll(it)
             adapter.notifyDataSetChanged()
@@ -112,7 +111,7 @@ class ArrangeBookActivity : VMBaseActivity<ArrangeBookViewModel>(R.layout.activi
                 AppConst.bookGroupNone.groupId -> App.db.bookDao().observeNoGroup()
                 else -> App.db.bookDao().observeByGroup(groupId)
             }
-        booksLiveData?.observe(this, Observer { list ->
+        booksLiveData?.observe(this, { list ->
             val books = when (getPrefInt(PreferKey.bookshelfSort)) {
                 1 -> list.sortedByDescending { it.latestChapterTime }
                 2 -> list.sortedBy { it.name }

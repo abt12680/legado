@@ -11,7 +11,6 @@ import android.view.ViewGroup
 import android.widget.EditText
 import androidx.appcompat.widget.Toolbar
 import androidx.fragment.app.FragmentManager
-import androidx.lifecycle.Observer
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -20,14 +19,15 @@ import io.legado.app.R
 import io.legado.app.base.BaseDialogFragment
 import io.legado.app.base.adapter.ItemViewHolder
 import io.legado.app.base.adapter.SimpleRecyclerAdapter
-import io.legado.app.constant.Theme
 import io.legado.app.data.entities.BookGroup
-import io.legado.app.help.ItemTouchCallback
 import io.legado.app.lib.dialogs.alert
 import io.legado.app.lib.dialogs.customView
 import io.legado.app.lib.dialogs.noButton
 import io.legado.app.lib.dialogs.yesButton
 import io.legado.app.lib.theme.accentColor
+import io.legado.app.lib.theme.backgroundColor
+import io.legado.app.lib.theme.primaryColor
+import io.legado.app.ui.widget.recycler.ItemTouchCallback
 import io.legado.app.ui.widget.recycler.VerticalDivider
 import io.legado.app.utils.applyTint
 import io.legado.app.utils.getViewModel
@@ -79,6 +79,7 @@ class GroupSelectDialog : BaseDialogFragment(), Toolbar.OnMenuItemClickListener 
     }
 
     override fun onFragmentCreated(view: View, savedInstanceState: Bundle?) {
+        tool_bar.setBackgroundColor(primaryColor)
         callBack = activity as? CallBack
         arguments?.let {
             groupId = it.getInt("groupId")
@@ -91,7 +92,7 @@ class GroupSelectDialog : BaseDialogFragment(), Toolbar.OnMenuItemClickListener 
     private fun initView() {
         tool_bar.title = getString(R.string.group_select)
         tool_bar.inflateMenu(R.menu.book_group_manage)
-        tool_bar.menu.applyTint(requireContext(), Theme.getTheme())
+        tool_bar.menu.applyTint(requireContext())
         tool_bar.setOnMenuItemClickListener(this)
         tool_bar.menu.setGroupVisible(R.id.menu_groups, false)
         adapter = GroupAdapter(requireContext())
@@ -111,7 +112,7 @@ class GroupSelectDialog : BaseDialogFragment(), Toolbar.OnMenuItemClickListener 
     }
 
     private fun initData() {
-        App.db.bookGroupDao().liveDataAll().observe(viewLifecycleOwner, Observer {
+        App.db.bookGroupDao().liveDataAll().observe(viewLifecycleOwner, {
             adapter.setItems(it)
         })
     }
@@ -172,6 +173,7 @@ class GroupSelectDialog : BaseDialogFragment(), Toolbar.OnMenuItemClickListener 
 
         override fun convert(holder: ItemViewHolder, item: BookGroup, payloads: MutableList<Any>) {
             holder.itemView.apply {
+                setBackgroundColor(context.backgroundColor)
                 cb_group.text = item.groupName
                 cb_group.isChecked = (groupId and item.groupId) > 0
             }

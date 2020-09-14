@@ -8,6 +8,7 @@ import android.view.Menu
 import android.view.MenuItem
 import io.legado.app.R
 import io.legado.app.base.BaseActivity
+import io.legado.app.lib.theme.ATH
 import io.legado.app.lib.theme.accentColor
 import io.legado.app.utils.openUrl
 import kotlinx.android.synthetic.main.activity_about.*
@@ -17,6 +18,7 @@ import org.jetbrains.anko.share
 class AboutActivity : BaseActivity(R.layout.activity_about) {
 
     override fun onActivityCreated(savedInstanceState: Bundle?) {
+        ll_about.background = ATH.getDialogBackground()
         val fTag = "aboutFragment"
         var aboutFragment = supportFragmentManager.findFragmentByTag(fTag)
         if (aboutFragment == null) aboutFragment = AboutFragment()

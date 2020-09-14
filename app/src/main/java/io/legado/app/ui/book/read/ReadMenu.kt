@@ -2,6 +2,7 @@ package io.legado.app.ui.book.read
 
 import android.content.Context
 import android.content.res.ColorStateList
+import android.graphics.drawable.GradientDrawable
 import android.util.AttributeSet
 import android.view.WindowManager
 import android.view.animation.Animation
@@ -11,10 +12,10 @@ import androidx.core.view.isVisible
 import io.legado.app.App
 import io.legado.app.R
 import io.legado.app.constant.EventBus
+import io.legado.app.constant.PreferKey
 import io.legado.app.help.AppConfig
 import io.legado.app.help.ReadBookConfig
 import io.legado.app.lib.theme.*
-import io.legado.app.lib.theme.ColorUtils
 import io.legado.app.service.help.ReadBook
 import io.legado.app.utils.*
 import kotlinx.android.synthetic.main.view_read_menu.view.*
@@ -28,8 +29,11 @@ class ReadMenu : FrameLayout {
     private lateinit var menuTopOut: Animation
     private lateinit var menuBottomIn: Animation
     private lateinit var menuBottomOut: Animation
+    private val bgColor: Int
+    private val textColor: Int
     private var bottomBackgroundList: ColorStateList
     private var onMenuOutEnd: (() -> Unit)? = null
+    val showBrightnessView get() = context.getPrefBoolean(PreferKey.showBrightnessView, true)
 
     constructor(context: Context) : super(context)
 
@@ -43,9 +47,11 @@ class ReadMenu : FrameLayout {
 
     init {
         callBack = activity as? CallBack
+        bgColor = context.bottomBackground
+        textColor = context.getPrimaryTextColor(ColorUtils.isColorLight(bgColor))
         bottomBackgroundList = Selector.colorBuild()
-            .setDefaultColor(context.bottomBackground)
-            .setPressedColor(ColorUtils.darkenColor(context.bottomBackground))
+            .setDefaultColor(bgColor)
+            .setPressedColor(ColorUtils.darkenColor(bgColor))
             .create()
         inflate(context, R.layout.view_read_menu, this)
         if (AppConfig.isNightTheme) {
@@ -54,7 +60,27 @@ class ReadMenu : FrameLayout {
             fabNightTheme.setImageResource(R.drawable.ic_brightness)
         }
         initAnimation()
-        ll_bottom_bg.setBackgroundColor(context.bottomBackground)
+        val brightnessBackground = GradientDrawable()
+        brightnessBackground.cornerRadius = 5F.dp
+        brightnessBackground.setColor(ColorUtils.adjustAlpha(bgColor, 0.5f))
+        ll_brightness.background = brightnessBackground
+        ll_bottom_bg.setBackgroundColor(bgColor)
+        fabAutoPage.backgroundTintList = bottomBackgroundList
+        fabAutoPage.setColorFilter(textColor)
+        fabReplaceRule.backgroundTintList = bottomBackgroundList
+        fabReplaceRule.setColorFilter(textColor)
+        fabNightTheme.backgroundTintList = bottomBackgroundList
+        fabNightTheme.setColorFilter(textColor)
+        tv_pre.setTextColor(textColor)
+        tv_next.setTextColor(textColor)
+        iv_catalog.setColorFilter(textColor)
+        tv_catalog.setTextColor(textColor)
+        iv_read_aloud.setColorFilter(textColor)
+        tv_read_aloud.setTextColor(textColor)
+        iv_font.setColorFilter(textColor)
+        tv_font.setTextColor(textColor)
+        iv_setting.setColorFilter(textColor)
+        tv_setting.setTextColor(textColor)
         vw_bg.onClick { }
         vwNavigationBar.onClick { }
         seek_brightness.progress = context.getPrefInt("brightness", 100)
@@ -62,7 +88,7 @@ class ReadMenu : FrameLayout {
         bindEvent()
     }
 
-    private fun upBrightnessState() {
+    fun upBrightnessState() {
         if (brightnessAuto()) {
             iv_brightness_auto.setColorFilter(context.accentColor)
             seek_brightness.isEnabled = false
@@ -105,7 +131,7 @@ class ReadMenu : FrameLayout {
     }
 
     private fun brightnessAuto(): Boolean {
-        return context.getPrefBoolean("brightnessAuto", true)
+        return context.getPrefBoolean("brightnessAuto", true) || !showBrightnessView
     }
 
     private fun bindEvent() {
@@ -145,7 +171,6 @@ class ReadMenu : FrameLayout {
         })
 
         //自动翻页
-        fabAutoPage.backgroundTintList = bottomBackgroundList
         fabAutoPage.onClick {
             runMenuOut {
                 callBack?.autoPage()
@@ -153,11 +178,9 @@ class ReadMenu : FrameLayout {
         }
 
         //替换
-        fabReplaceRule.backgroundTintList = bottomBackgroundList
         fabReplaceRule.onClick { callBack?.openReplaceRule() }
 
         //夜间模式
-        fabNightTheme.backgroundTintList = bottomBackgroundList
         fabNightTheme.onClick {
             AppConfig.isNightTheme = !AppConfig.isNightTheme
             App.INSTANCE.applyDayNight()
@@ -203,18 +226,22 @@ class ReadMenu : FrameLayout {
     }
 
     private fun initAnimation() {
+        //显示菜单
         menuTopIn = AnimationUtilsSupport.loadAnimation(context, R.anim.anim_readbook_top_in)
         menuBottomIn = AnimationUtilsSupport.loadAnimation(context, R.anim.anim_readbook_bottom_in)
         menuTopIn.setAnimationListener(object : Animation.AnimationListener {
             override fun onAnimationStart(animation: Animation) {
                 callBack?.upSystemUiVisibility()
+                ll_brightness.visible(showBrightnessView)
             }
 
             override fun onAnimationEnd(animation: Animation) {
                 vw_menu_bg.onClick { runMenuOut() }
                 vwNavigationBar.layoutParams = vwNavigationBar.layoutParams.apply {
                     height =
-                        if (ReadBookConfig.hideNavigationBar && Help.isNavigationBarExist(activity))
+                        if (ReadBookConfig.hideNavigationBar
+                            && SystemUtils.isNavigationBarExist(activity)
+                        )
                             context.navigationBarHeight
                         else 0
                 }
@@ -227,7 +254,8 @@ class ReadMenu : FrameLayout {
 
         //隐藏菜单
         menuTopOut = AnimationUtilsSupport.loadAnimation(context, R.anim.anim_readbook_top_out)
-        menuBottomOut = AnimationUtilsSupport.loadAnimation(context, R.anim.anim_readbook_bottom_out)
+        menuBottomOut =
+            AnimationUtilsSupport.loadAnimation(context, R.anim.anim_readbook_bottom_out)
         menuTopOut.setAnimationListener(object : Animation.AnimationListener {
             override fun onAnimationStart(animation: Animation) {
                 vw_menu_bg.setOnClickListener(null)
@@ -256,6 +284,7 @@ class ReadMenu : FrameLayout {
             fabAutoPage.setImageResource(R.drawable.ic_auto_page)
             fabAutoPage.contentDescription = context.getString(R.string.auto_next_page)
         }
+        fabAutoPage.setColorFilter(textColor)
     }
 
     interface CallBack {

@@ -4,12 +4,17 @@ on:
   release:
     types: [published]
   push:
-    tags:
-    - '3.*'
-  watch:
-    types: [started]
-  schedule:
-    - cron: '0 4 * * *'
+    branches: 
+      - master
+#    tags:
+#      - '3.*'
+#  pull_request:
+#    branches:
+#      - master
+#  watch:
+#    types: [started]
+#  schedule:
+#    - cron: '0 4 * * *'
 
 jobs:
   build:
@@ -43,7 +48,7 @@ jobs:
       run: |
         echo "开始进行release构建"
         chmod +x gradlew
-        ./gradlew aR
+        ./gradlew assembleAppRelease
     - name : upload apk
       uses: actions/upload-artifact@master
       if: always()

@@ -20,7 +20,9 @@ class AnalyzeTxtFile {
     @Throws(Exception::class)
     fun analyze(book: Book): ArrayList<BookChapter> {
         val bookFile = getBookFile(book)
-        book.charset = EncodingDetect.getEncode(bookFile)
+        if (book.charset == null) {
+            book.charset = EncodingDetect.getEncode(bookFile)
+        }
         charset = book.fileCharset()
         val rulePattern = if (book.tocUrl.isNotEmpty()) {
             Pattern.compile(book.tocUrl, Pattern.MULTILINE)
@@ -248,7 +250,7 @@ class AnalyzeTxtFile {
             val rootFile = App.INSTANCE.getExternalFilesDir(null)
                 ?: App.INSTANCE.externalCacheDir
                 ?: App.INSTANCE.cacheDir
-            FileUtils.createFolderIfNotExist(rootFile, subDirs = *arrayOf(folderName))
+            FileUtils.createFolderIfNotExist(rootFile, folderName)
         }
 
         fun getContent(book: Book, bookChapter: BookChapter): String {
@@ -264,7 +266,7 @@ class AnalyzeTxtFile {
         private fun getBookFile(book: Book): File {
             if (book.bookUrl.isContentPath()) {
                 val uri = Uri.parse(book.bookUrl)
-                val bookFile = FileUtils.getFile(cacheFolder, book.originName, subDirs = *arrayOf())
+                val bookFile = FileUtils.getFile(cacheFolder, book.originName)
                 if (!bookFile.exists()) {
                     bookFile.createNewFile()
                     DocumentUtils.readBytes(App.INSTANCE, uri)?.let {

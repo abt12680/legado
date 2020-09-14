@@ -27,10 +27,7 @@ object BookContent {
         nextChapterUrlF: String? = null
     ): String {
         body ?: throw Exception(
-            App.INSTANCE.getString(
-                R.string.error_get_web_content,
-                baseUrl
-            )
+            App.INSTANCE.getString(R.string.error_get_web_content, baseUrl)
         )
         Debug.log(bookSource.bookSourceUrl, "≡获取成功:${baseUrl}")
         val content = StringBuilder()
@@ -98,10 +95,11 @@ object BookContent {
         content.deleteCharAt(content.length - 1)
         var contentStr = content.toString().htmlFormat()
         val replaceRegex = bookSource.ruleContent?.replaceRegex
-        replaceRegex?.trim { it <= ' ' }?.split("##")?.let {
-            if (it.size > 1) {
-                contentStr = contentStr.replace(it[1].toRegex(), it.getOrNull(2) ?: "")
-            }
+        if (!replaceRegex.isNullOrEmpty()) {
+            val analyzeRule = AnalyzeRule(book)
+            analyzeRule.setContent(contentStr, baseUrl)
+            analyzeRule.chapter = bookChapter
+            contentStr = analyzeRule.getString(replaceRegex)
         }
         Debug.log(bookSource.bookSourceUrl, "┌获取章节名称")
         Debug.log(bookSource.bookSourceUrl, "└${bookChapter.title}")

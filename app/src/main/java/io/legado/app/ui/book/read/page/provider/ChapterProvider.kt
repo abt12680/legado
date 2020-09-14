@@ -1,13 +1,13 @@
 package io.legado.app.ui.book.read.page.provider
 
 import android.graphics.Typeface
+import android.net.Uri
 import android.os.Build
 import android.text.Layout
 import android.text.StaticLayout
 import android.text.TextPaint
-import android.text.TextUtils
 import io.legado.app.App
-import io.legado.app.constant.PreferKey
+import io.legado.app.constant.AppPattern
 import io.legado.app.data.entities.Book
 import io.legado.app.data.entities.BookChapter
 import io.legado.app.help.AppConfig
@@ -18,13 +18,12 @@ import io.legado.app.ui.book.read.page.entities.TextLine
 import io.legado.app.ui.book.read.page.entities.TextPage
 import io.legado.app.utils.*
 import java.util.*
-import java.util.regex.Pattern
 
 
 @Suppress("DEPRECATION")
 object ChapterProvider {
-    var viewWidth = 0
-    var viewHeight = 0
+    private var viewWidth = 0
+    private var viewHeight = 0
     var paddingLeft = 0
     var paddingTop = 0
     var visibleWidth = 0
@@ -38,8 +37,6 @@ object ChapterProvider {
     var typeface: Typeface = Typeface.SANS_SERIF
     lateinit var titlePaint: TextPaint
     lateinit var contentPaint: TextPaint
-    private val srcPattern =
-        Pattern.compile("<img .*?src.*?=.*?\"(.*?)\".*?>", Pattern.CASE_INSENSITIVE)
 
     init {
         upStyle()
@@ -53,7 +50,7 @@ object ChapterProvider {
         bookChapter: BookChapter,
         contents: List<String>,
         chapterSize: Int,
-        imageStyle: String?
+        imageStyle: String?,
     ): TextChapter {
         val textPages = arrayListOf<TextPage>()
         val pageLines = arrayListOf<Int>()
@@ -62,7 +59,7 @@ object ChapterProvider {
         var durY = 0f
         textPages.add(TextPage())
         contents.forEachIndexed { index, text ->
-            val matcher = srcPattern.matcher(text)
+            val matcher = AppPattern.imgPattern.matcher(text)
             if (matcher.find()) {
                 var src = matcher.group(1)
                 if (!book.isEpub()) {
@@ -119,7 +116,7 @@ object ChapterProvider {
         src: String,
         y: Float,
         textPages: ArrayList<TextPage>,
-        imageStyle: String?
+        imageStyle: String?,
     ): Float {
         var durY = y
         ImageProvider.getImage(book, chapter.index, src)?.let {
@@ -187,14 +184,12 @@ object ChapterProvider {
         pageLines: ArrayList<Int>,
         pageLengths: ArrayList<Int>,
         stringBuilder: StringBuilder,
-        isTitle: Boolean
+        isTitle: Boolean,
     ): Float {
         var durY = if (isTitle) y + titleTopSpacing else y
         val textPaint = if (isTitle) titlePaint else contentPaint
         val layout = StaticLayout(
-            text, textPaint,
-            visibleWidth,
-            Layout.Alignment.ALIGN_NORMAL, 0f, 0f, true
+            text, textPaint, visibleWidth, Layout.Alignment.ALIGN_NORMAL, 0f, 0f, true
         )
         for (lineIndex in 0 until layout.lineCount) {
             val textLine = TextLine(isTitle = isTitle)
@@ -265,7 +260,7 @@ object ChapterProvider {
         textLine: TextLine,
         words: Array<String>,
         textPaint: TextPaint,
-        desiredWidth: Float
+        desiredWidth: Float,
     ) {
         var x = 0f
         if (!ReadBookConfig.textFullJustify) {
@@ -306,7 +301,7 @@ object ChapterProvider {
         words: Array<String>,
         textPaint: TextPaint,
         desiredWidth: Float,
-        startX: Float
+        startX: Float,
     ) {
         if (!ReadBookConfig.textFullJustify) {
             addCharsToLineLast(
@@ -343,7 +338,7 @@ object ChapterProvider {
         textLine: TextLine,
         words: Array<String>,
         textPaint: TextPaint,
-        startX: Float
+        startX: Float,
     ) {
         var x = startX
         words.forEach {
@@ -384,18 +379,27 @@ object ChapterProvider {
      */
     fun upStyle() {
         typeface = try {
-            val fontPath = App.INSTANCE.getPrefString(PreferKey.readBookFont)
-            if (!TextUtils.isEmpty(fontPath)) {
-                Typeface.createFromFile(fontPath)
-            } else {
-                when (AppConfig.systemTypefaces) {
+            val fontPath = ReadBookConfig.textFont
+            when {
+                fontPath.isContentPath() && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O -> {
+                    val fd = App.INSTANCE.contentResolver
+                        .openFileDescriptor(Uri.parse(fontPath), "r")!!
+                        .fileDescriptor
+                    Typeface.Builder(fd).build()
+                }
+                fontPath.isContentPath() -> {
+                    Typeface.createFromFile(RealPathUtil.getPath(App.INSTANCE, Uri.parse(fontPath)))
+                }
+                fontPath.isNotEmpty() -> Typeface.createFromFile(fontPath)
+                else -> when (AppConfig.systemTypefaces) {
                     1 -> Typeface.SERIF
                     2 -> Typeface.MONOSPACE
                     else -> Typeface.SANS_SERIF
                 }
             }
         } catch (e: Exception) {
-            App.INSTANCE.removePref(PreferKey.readBookFont)
+            ReadBookConfig.textFont = ""
+            ReadBookConfig.save()
             Typeface.SANS_SERIF
         }
         // 字体统一处理
@@ -436,19 +440,32 @@ object ChapterProvider {
         paragraphSpacing = ReadBookConfig.paragraphSpacing
         titleTopSpacing = ReadBookConfig.titleTopSpacing.dp
         titleBottomSpacing = ReadBookConfig.titleBottomSpacing.dp
-        upViewSize()
+        upVisibleSize()
     }
 
     /**
      * 更新View尺寸
      */
-    fun upViewSize() {
-        paddingLeft = ReadBookConfig.paddingLeft.dp
-        paddingTop = ReadBookConfig.paddingTop.dp
-        visibleWidth = viewWidth - paddingLeft - ReadBookConfig.paddingRight.dp
-        visibleHeight = viewHeight - paddingTop - ReadBookConfig.paddingBottom.dp
-        visibleRight = paddingLeft + visibleWidth
-        visibleBottom = paddingTop + visibleHeight
+    fun upViewSize(width: Int, height: Int) {
+        if (width > 0 && height > 0) {
+            viewWidth = width
+            viewHeight = height
+            upVisibleSize()
+        }
+    }
+
+    /**
+     * 更新绘制尺寸
+     */
+    private fun upVisibleSize() {
+        if (viewWidth > 0 && viewHeight > 0) {
+            paddingLeft = ReadBookConfig.paddingLeft.dp
+            paddingTop = ReadBookConfig.paddingTop.dp
+            visibleWidth = viewWidth - paddingLeft - ReadBookConfig.paddingRight.dp
+            visibleHeight = viewHeight - paddingTop - ReadBookConfig.paddingBottom.dp
+            visibleRight = paddingLeft + visibleWidth
+            visibleBottom = paddingTop + visibleHeight
+        }
     }
 
     val TextPaint.textHeight: Float

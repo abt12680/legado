@@ -7,7 +7,7 @@ import io.legado.app.App
 import io.legado.app.base.BaseViewModel
 import io.legado.app.data.entities.RssArticle
 import io.legado.app.data.entities.RssSource
-import io.legado.app.model.Rss
+import io.legado.app.model.rss.Rss
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -18,6 +18,7 @@ class RssArticlesViewModel(application: Application) : BaseViewModel(application
     private var nextPageUrl: String? = null
     var sortName: String = ""
     var sortUrl: String = ""
+    var page = 1
 
     fun init(bundle: Bundle?) {
         bundle?.let {
@@ -26,10 +27,10 @@ class RssArticlesViewModel(application: Application) : BaseViewModel(application
         }
     }
 
-
     fun loadContent(rssSource: RssSource) {
         isLoading = true
-        Rss.getArticles(sortName, sortUrl, rssSource, null)
+        page = 1
+        Rss.getArticles(sortName, sortUrl, rssSource, page)
             .onSuccess(Dispatchers.IO) {
                 nextPageUrl = it.nextPageUrl
                 it.articles.let { list ->
@@ -48,20 +49,23 @@ class RssArticlesViewModel(application: Application) : BaseViewModel(application
                     isLoading = false
                 }
             }.onError {
+                it.printStackTrace()
                 toast(it.localizedMessage)
             }
     }
 
     fun loadMore(rssSource: RssSource) {
         isLoading = true
+        page++
         val pageUrl = nextPageUrl
         if (!pageUrl.isNullOrEmpty()) {
-            Rss.getArticles(sortName, pageUrl, rssSource, pageUrl)
+            Rss.getArticles(sortName, pageUrl, rssSource, page)
                 .onSuccess(Dispatchers.IO) {
                     nextPageUrl = it.nextPageUrl
                     loadMoreSuccess(it.articles)
                 }
                 .onError {
+                    it.printStackTrace()
                     loadFinally.postValue(false)
                 }
         } else {

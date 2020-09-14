@@ -31,7 +31,7 @@ object LocalBook {
         }
     }
 
-    fun importFile(path: String) {
+    fun importFile(path: String): Book {
         val fileName = if (path.isContentPath()) {
             val doc = DocumentFile.fromSingleUri(App.INSTANCE, Uri.parse(path))
             doc?.name ?: ""
@@ -48,7 +48,7 @@ object LocalBook {
         } else {
             name = str.substring(0, authorIndex)
             author = str.substring(authorIndex)
-            author = BookHelp.formatAuthor(author)
+            author = BookHelp.formatBookAuthor(author)
         }
         val smhStart = name.indexOf("《")
         val smhEnd = name.indexOf("》")
@@ -62,11 +62,12 @@ object LocalBook {
             originName = fileName,
             coverUrl = FileUtils.getPath(
                 App.INSTANCE.externalFilesDir,
-                "${MD5Utils.md5Encode16(path)}.jpg",
-                "covers"
+                "covers",
+                "${MD5Utils.md5Encode16(path)}.jpg"
             )
         )
         App.db.bookDao().insert(book)
+        return book
     }
 
     fun deleteBook(book: Book, deleteOriginal: Boolean) {

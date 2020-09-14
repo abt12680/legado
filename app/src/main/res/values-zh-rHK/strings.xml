@@ -83,15 +83,15 @@
     <string name="web_service_desc">啟用 Web 服務</string>
     <string name="web_edit_source">web 編輯書源</string>
     <string name="http_ip">http://%1$s:%2$d</string>
-    <string name="download_offline">離線下載</string>
-    <string name="download_offline_t">離線下載</string>
-    <string name="download_offline_s">下載已選擇的章節到本地</string>
+    <string name="offline_cache">離線緩存</string>
+    <string name="offline_cache_t">離線緩存</string>
+    <string name="offline_cache_s">緩存已選擇的章節到本地</string>
     <string name="change_origin">換源</string>
     <string name="about_description">
         \u3000\u3000這是一款使用 Kotlin 全新開發的開源的閲讀應用程式，歡迎你的加入。關注公眾號[legado-top]！
     </string>
     <string name="app_share_description">
-        閲讀3.0下載地址：\nhttps://play.google.com/store/apps/details?id=io.legado.app
+        閲讀3.0下載地址：\nhttps://play.google.com/store/apps/details?id=io.legado.play.release
     </string>
     <string name="version_name">Version %s</string>
     <string name="pt_auto_refresh">自動刷新</string>
@@ -161,8 +161,8 @@
     <string name="author">作者</string>
     <string name="author_show">作者: %s</string>
     <string name="aloud_stop">朗讀停止</string>
-    <string name="clear_cache">清除緩存</string>
-    <string name="clear_cache_success">成功清除緩存</string>
+    <string name="clear_cache">清理緩存</string>
+    <string name="clear_cache_success">成功清理緩存</string>
     <string name="action_save">保存</string>
     <string name="edit_source">編輯源</string>
     <string name="edit_book_source">編輯書源</string>
@@ -319,10 +319,9 @@
     <string name="book_info_edit">書籍信息編輯</string>
     <string name="ps_default_read">默認打開書架</string>
     <string name="pt_default_read">自動跳轉最近閲讀</string>
-    <string name="use_to">替換範圍，選填書名或者源名</string>
+    <string name="use_to">替換範圍，選填書名或者書源url</string>
     <string name="menu_action_group">分組</string>
     <string name="download_path">內容緩存路徑</string>
-    <string name="cleanCache">清理緩存</string>
     <string name="sys_file_picker">系統文件選擇器</string>
     <string name="new_version">新版本</string>
     <string name="download_update">下載更新</string>
@@ -384,6 +383,7 @@
     <string name="source_group">源分組 (sourceGroup)</string>
     <string name="sort_url">分類 Url</string>
     <string name="login_url">登錄 URL(loginUrl)</string>
+    <string name="comment">源注釋(sourceComment)</string>
     <string name="r_search_url">搜索地址 (url)</string>
     <string name="r_find_url">發現地址規則 (url)</string>
     <string name="r_book_list">書籍列表規則 (bookList)</string>
@@ -446,8 +446,6 @@
     <string name="theme">主題</string>
     <string name="theme_mode">主題模式</string>
     <string name="theme_mode_desc">選擇主題模式</string>
-    <string name="default_theme">默認主題</string>
-    <string name="restore_default_theme">恢復主題為默認配色</string>
     <string name="join_qq_group">加入QQ羣</string>
     <string name="bg_image_per">獲取背景圖片需存儲權限</string>
     <string name="input_book_source_url">輸入書源網址</string>
@@ -543,7 +541,7 @@
     <string name="timer_m">%d 分鐘</string>
     <string name="brightness_auto">自動亮度 %s</string>
     <string name="read_aloud_by_page">按頁朗讀</string>
-    <string name="read_aloud_on_line">在線朗讀</string>
+    <string name="speak_engine">朗讀引擎</string>
     <string name="bg_image">背景圖片</string>
     <string name="bg_color">背景顏色</string>
     <string name="text_color">文字顏色</string>
@@ -553,6 +551,7 @@
     <string name="group_edit">編輯分組</string>
     <string name="move_to_group">移入分組</string>
     <string name="add_group">添加分組</string>
+    <string name="remove_group">移除分組</string>
     <string name="add_replace_rule">新建替換</string>
     <string name="group">分組</string>
     <string name="group_s">分組: %s</string>
@@ -702,7 +701,7 @@
     <string name="other">其它</string>
     <string name="official_account">legado-top</string>
     <string name="backup_summary">本地和WebDav壹起備份</string>
-    <string name="restore_summary">優先從WebDav恢復,失敗時從本地恢復</string>
+    <string name="restore_summary">優先從WebDav恢復,長按從本地恢復</string>
     <string name="import_old_summary">選擇舊版備份文件夾</string>
     <string name="enabled">已啓用</string>
     <string name="disabled">已禁用</string>
@@ -728,4 +727,39 @@
     <string name="rule_replace_regex">替换规则(replaceRegex)</string>
     <string name="group_name">分組名稱</string>
     <string name="note_content">備註內容</string>
+    <string name="e_ink_change_bg">E-Ink模式下只有白纸黑字,不显示其它背景</string>
+    <string name="replace_enable_default_t">默认启用替换净化</string>
+    <string name="replace_enable_default_s">新加入书架的书是否启用替换净化</string>
+    <string name="select_restore_file">选择恢复文件</string>
+    <string name="day_background_too_dark">白天背景不能太暗</string>
+    <string name="day_bottom_bar_too_dark">白天底栏不能太暗</string>
+    <string name="night_background_too_light">夜间背景不能太亮</string>
+    <string name="night_bottom_bar_too_light">夜间底栏不能太亮</string>
+    <string name="accent_background_diff">强调色不能和背景颜色相似</string>
+    <string name="accent_text_diff">强调色不能和文字颜色相似</string>
+    <string name="wrong_format">格式不对</string>
+    <string name="error">错误</string>
+    <string name="show_brightness_view">显示亮度调节控件</string>
+    <string name="language">语言</string>
+    <string name="import_rss_source">导入订阅源</string>
+    <string name="donate_summary">您的支持是我更新的动力</string>
+    <string name="about_summary">公众号[开源阅读软件]</string>
+    <string name="read_record">阅读记录</string>
+    <string name="read_record_summary">阅读时间记录</string>
+    <string name="local_tts">本地TTS</string>
+    <string name="thread_count">线程数</string>
+    <string name="all_read_time">总阅读时间</string>
+    <string name="un_select_all">全不选</string>
+    <string name="delete_all">删除所有</string>
+    <string name="import_str">导入</string>
+    <string name="export_str">导出</string>
+    <string name="save_theme_config">保存主题配置</string>
+    <string name="save_day_theme_summary">保存白天主题配置以共调用和分享</string>
+    <string name="save_night_theme_summary">保存夜间主题配置以共调用和分享</string>
+    <string name="theme_list">主题列表</string>
+    <string name="theme_list_summary">使用保存主题,导入,分享主题</string>
+    <string name="select_theme">切換默認主題</string>
+    <string name="share_selected_source">分享選中書源</string>
+    <string name="sort_by_lastUppdateTime">時間排序</string>
+
 </resources>

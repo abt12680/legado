@@ -8,7 +8,6 @@ import android.os.Bundle
 import android.view.Menu
 import android.view.MenuItem
 import android.widget.SeekBar
-import androidx.lifecycle.Observer
 import com.bumptech.glide.RequestBuilder
 import com.bumptech.glide.load.resource.drawable.DrawableTransitionOptions
 import com.bumptech.glide.request.RequestOptions.bitmapTransform
@@ -37,7 +36,7 @@ import org.jetbrains.anko.startActivityForResult
 
 
 class AudioPlayActivity :
-    VMBaseActivity<AudioPlayViewModel>(R.layout.activity_audio_play, theme = Theme.Dark),
+    VMBaseActivity<AudioPlayViewModel>(R.layout.activity_audio_play, toolBarTheme = Theme.Dark),
     ChangeSourceDialog.CallBack {
 
     override val viewModel: AudioPlayViewModel
@@ -48,8 +47,8 @@ class AudioPlayActivity :
 
     override fun onActivityCreated(savedInstanceState: Bundle?) {
         title_bar.transparent()
-        AudioPlay.titleData.observe(this, Observer { title_bar.title = it })
-        AudioPlay.coverData.observe(this, Observer { upCover(it) })
+        AudioPlay.titleData.observe(this, { title_bar.title = it })
+        AudioPlay.coverData.observe(this, { upCover(it) })
         viewModel.initData(intent)
         initView()
     }
@@ -153,7 +152,10 @@ class AudioPlayActivity :
             if (!AudioPlay.inBookshelf) {
                 this.alert(title = getString(R.string.add_to_shelf)) {
                     message = getString(R.string.check_add_bookshelf, it.name)
-                    okButton { AudioPlay.inBookshelf = true }
+                    okButton {
+                        AudioPlay.inBookshelf = true
+                        setResult(Activity.RESULT_OK)
+                    }
                     noButton { viewModel.removeFromBookshelf { super.finish() } }
                 }.show().applyTint()
             } else {
