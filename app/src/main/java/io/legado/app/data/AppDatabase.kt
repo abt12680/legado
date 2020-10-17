@@ -7,6 +7,7 @@ import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import io.legado.app.App
+import io.legado.app.constant.AppConst
 import io.legado.app.data.dao.*
 import io.legado.app.data.entities.*
 
@@ -16,7 +17,7 @@ import io.legado.app.data.entities.*
         ReplaceRule::class, SearchBook::class, SearchKeyword::class, Cookie::class,
         RssSource::class, Bookmark::class, RssArticle::class, RssReadRecord::class,
         RssStar::class, TxtTocRule::class, ReadRecord::class, HttpTTS::class],
-    version = 20,
+    version = 21,
     exportSchema = true
 )
 abstract class AppDatabase: RoomDatabase() {
@@ -37,12 +38,43 @@ abstract class AppDatabase: RoomDatabase() {
                     migration_15_17,
                     migration_17_18,
                     migration_18_19,
-                    migration_19_20
+                    migration_19_20,
+                    migration_20_21
                 )
                 .allowMainThreadQueries()
+                .addCallback(dbCallback)
                 .build()
-        
-        private val migration_10_11 = object: Migration(10, 11) {
+
+        private val dbCallback = object : Callback() {
+            override fun onOpen(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    insert into book_groups(groupId, groupName, 'order') select ${AppConst.bookGroupAllId}, '全部', -10 
+                    where not exists (select * from book_groups where groupId = ${AppConst.bookGroupAllId})
+                """
+                )
+                db.execSQL(
+                    """
+                    insert into book_groups(groupId, groupName, 'order') select ${AppConst.bookGroupLocalId}, '本地', -9 
+                    where not exists (select * from book_groups where groupId = ${AppConst.bookGroupLocalId})
+                """
+                )
+                db.execSQL(
+                    """
+                    insert into book_groups(groupId, groupName, 'order') select ${AppConst.bookGroupAudioId}, '音频', -8
+                    where not exists (select * from book_groups where groupId = ${AppConst.bookGroupAudioId})
+                """
+                )
+                db.execSQL(
+                    """
+                    insert into book_groups(groupId, groupName, 'order') select ${AppConst.bookGroupNoneId}, '未分组', -7
+                    where not exists (select * from book_groups where groupId = ${AppConst.bookGroupNoneId})
+                """
+                )
+            }
+        }
+
+        private val migration_10_11 = object : Migration(10, 11) {
             override fun migrate(database: SupportSQLiteDatabase) {
                 database.execSQL("DROP TABLE txtTocRules")
                 database.execSQL(
@@ -112,9 +144,15 @@ abstract class AppDatabase: RoomDatabase() {
                 database.execSQL("ALTER TABLE readRecordNew RENAME TO readRecord")
             }
         }
-        private val migration_19_20 = object: Migration(19, 20) {
+        private val migration_19_20 = object : Migration(19, 20) {
             override fun migrate(database: SupportSQLiteDatabase) {
                 database.execSQL("ALTER TABLE book_sources ADD bookSourceComment TEXT")
+            }
+        }
+
+        private val migration_20_21 = object : Migration(20, 21) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE book_groups ADD show INTEGER NOT NULL DEFAULT 1")
             }
         }
     }
