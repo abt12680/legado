@@ -10,6 +10,7 @@ import io.legado.app.App
 import io.legado.app.constant.AppConst
 import io.legado.app.data.dao.*
 import io.legado.app.data.entities.*
+import java.util.*
 
 
 @Database(
@@ -46,28 +47,33 @@ abstract class AppDatabase: RoomDatabase() {
                 .build()
 
         private val dbCallback = object : Callback() {
+
+            override fun onCreate(db: SupportSQLiteDatabase) {
+                db.setLocale(Locale.CHINESE)
+            }
+
             override fun onOpen(db: SupportSQLiteDatabase) {
                 db.execSQL(
                     """
-                    insert into book_groups(groupId, groupName, 'order') select ${AppConst.bookGroupAllId}, '全部', -10 
+                    insert into book_groups(groupId, groupName, 'order', show) select ${AppConst.bookGroupAllId}, '全部', -10, 1
                     where not exists (select * from book_groups where groupId = ${AppConst.bookGroupAllId})
                 """
                 )
                 db.execSQL(
                     """
-                    insert into book_groups(groupId, groupName, 'order') select ${AppConst.bookGroupLocalId}, '本地', -9 
+                    insert into book_groups(groupId, groupName, 'order', show) select ${AppConst.bookGroupLocalId}, '本地', -9, 1
                     where not exists (select * from book_groups where groupId = ${AppConst.bookGroupLocalId})
                 """
                 )
                 db.execSQL(
                     """
-                    insert into book_groups(groupId, groupName, 'order') select ${AppConst.bookGroupAudioId}, '音频', -8
+                    insert into book_groups(groupId, groupName, 'order', show) select ${AppConst.bookGroupAudioId}, '音频', -8, 1
                     where not exists (select * from book_groups where groupId = ${AppConst.bookGroupAudioId})
                 """
                 )
                 db.execSQL(
                     """
-                    insert into book_groups(groupId, groupName, 'order') select ${AppConst.bookGroupNoneId}, '未分组', -7
+                    insert into book_groups(groupId, groupName, 'order', show) select ${AppConst.bookGroupNoneId}, '未分组', -7, 1
                     where not exists (select * from book_groups where groupId = ${AppConst.bookGroupNoneId})
                 """
                 )
