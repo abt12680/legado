@@ -91,7 +91,7 @@ class ReadBookActivity : VMBaseActivity<ReadBookViewModel>(R.layout.activity_boo
 
     override val scope: CoroutineScope get() = this
     override val isInitFinish: Boolean get() = viewModel.isInitFinish
-
+    override val isScroll: Boolean get() = page_view.isScroll
     private val mHandler = Handler()
     private val keepScreenRunnable: Runnable =
         Runnable { ReadBookActivityHelp.keepScreenOn(window, false) }
@@ -228,8 +228,9 @@ class ReadBookActivity : VMBaseActivity<ReadBookViewModel>(R.layout.activity_boo
                         R.id.menu_group_text -> item.isVisible = book.isLocalTxt()
                         R.id.menu_group_login ->
                             item.isVisible = !ReadBook.webBook?.bookSource?.loginUrl.isNullOrEmpty()
-                        else -> if (item.itemId == R.id.menu_enable_replace) {
-                            item.isChecked = book.useReplaceRule
+                        else -> when (item.itemId) {
+                            R.id.menu_enable_replace -> item.isChecked = book.getUseReplaceRule()
+                            R.id.menu_re_segment -> item.isChecked = book.getReSegment()
                         }
                     }
                 }
@@ -263,9 +264,17 @@ class ReadBookActivity : VMBaseActivity<ReadBookViewModel>(R.layout.activity_boo
                 loadChapterList(it)
             }
             R.id.menu_enable_replace -> ReadBook.book?.let {
-                it.useReplaceRule = !it.useReplaceRule
-                menu?.findItem(R.id.menu_enable_replace)?.isChecked = it.useReplaceRule
+                it.setUseReplaceRule(!it.getUseReplaceRule())
+                menu?.findItem(R.id.menu_enable_replace)?.isChecked = it.getUseReplaceRule()
                 onReplaceRuleSave()
+            }
+            R.id.menu_re_segment -> ReadBook.book?.let {
+                it.setReSegment(!it.getReSegment())
+                menu?.findItem(R.id.menu_re_segment)?.isChecked = it.getReSegment()
+                ReadBook.loadContent(false)
+            }
+            R.id.menu_page_anim -> ReadBookActivityHelp.showPageAnimConfig(this) {
+                page_view.upPageAnim()
             }
             R.id.menu_book_info -> ReadBook.book?.let {
                 startActivity<BookInfoActivity>(
@@ -579,6 +588,12 @@ class ReadBookActivity : VMBaseActivity<ReadBookViewModel>(R.layout.activity_boo
                 tv_chapter_name.gone()
                 tv_chapter_url.gone()
             }
+        }
+    }
+
+    override fun upPageAnim() {
+        launch {
+            page_view.upPageAnim()
         }
     }
 

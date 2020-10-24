@@ -189,9 +189,6 @@ class AnalyzeUrl(
                             ?.let { headerMap.putAll(it) }
                     }
                 }
-                headerMap[UA_NAME] ?: let {
-                    headerMap[UA_NAME] = userAgent
-                }
                 option.charset?.let { charset = it }
                 option.body?.let {
                     body = if (it is String) it else GSON.toJson(it)
@@ -205,6 +202,9 @@ class AnalyzeUrl(
                     evalJS(it)
                 }
             }
+        }
+        headerMap[UA_NAME] ?: let {
+            headerMap[UA_NAME] = userAgent
         }
         when (method) {
             RequestMethod.GET -> {
@@ -281,7 +281,13 @@ class AnalyzeUrl(
     fun getResponse(tag: String): Call<String> {
         val cookie = CookieStore.getCookie(tag)
         if (cookie.isNotEmpty()) {
-            headerMap["Cookie"] += ";${cookie}"
+            val cookieMap = CookieStore.cookieToMap(cookie)
+            val customCookieMap = CookieStore.cookieToMap(headerMap["Cookie"] ?: "")
+            cookieMap.putAll(customCookieMap)
+            val newCookie = CookieStore.mapToCookie(cookieMap)
+            newCookie?.let {
+                headerMap.put("Cookie", it)
+            }
         }
         return when {
             method == RequestMethod.POST -> {
@@ -312,6 +318,16 @@ class AnalyzeUrl(
         if (type != null) {
             return Res(url, StringUtils.byteToHexString(getResponseBytes(tag)))
         }
+        val cookie = CookieStore.getCookie(tag)
+        if (cookie.isNotEmpty()) {
+            val cookieMap = CookieStore.cookieToMap(cookie)
+            val customCookieMap = CookieStore.cookieToMap(headerMap["Cookie"] ?: "")
+            cookieMap.putAll(customCookieMap)
+            val newCookie = CookieStore.mapToCookie(cookieMap)
+            newCookie?.let {
+                headerMap.put("Cookie", it)
+            }
+        }
         if (useWebView) {
             val params = AjaxWebView.AjaxParams(url)
             params.headerMap = headerMap
@@ -321,10 +337,6 @@ class AnalyzeUrl(
             params.postData = body?.toByteArray()
             params.tag = tag
             return HttpHelper.ajax(params)
-        }
-        val cookie = CookieStore.getCookie(tag)
-        if (cookie.isNotEmpty()) {
-            headerMap["Cookie"] += ";${cookie}"
         }
         val res = when {
             method == RequestMethod.POST -> {
@@ -356,7 +368,13 @@ class AnalyzeUrl(
         if (tag != null) {
             val cookie = CookieStore.getCookie(tag)
             if (cookie.isNotEmpty()) {
-                headerMap["Cookie"] += ";${cookie}"
+                val cookieMap = CookieStore.cookieToMap(cookie)
+                val customCookieMap = CookieStore.cookieToMap(headerMap["Cookie"] ?: "")
+                cookieMap.putAll(customCookieMap)
+                val newCookie = CookieStore.mapToCookie(cookieMap)
+                newCookie?.let {
+                    headerMap.put("Cookie", it)
+                }
             }
         }
         val response = when {

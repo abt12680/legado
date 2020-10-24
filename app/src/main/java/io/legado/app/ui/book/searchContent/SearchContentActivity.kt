@@ -167,8 +167,8 @@ class SearchContentActivity :
         var replaceContents: List<String>? = null
         var totalContents: String
         if (chapter != null) {
-            viewModel.book?.let { bookSource ->
-                val bookContent = BookHelp.getContent(bookSource, chapter)
+            viewModel.book?.let { book ->
+                val bookContent = BookHelp.getContent(book, chapter)
                 if (bookContent != null) {
                     //搜索替换后的正文
                     val job = async(Dispatchers.IO) {
@@ -177,13 +177,7 @@ class SearchContentActivity :
                             2 -> HanLP.convertToTraditionalChinese(chapter.title)
                             else -> chapter.title
                         }
-                        replaceContents = BookHelp.disposeContent(
-                            chapter.title,
-                            bookSource.name,
-                            bookSource.bookUrl,
-                            bookContent,
-                            bookSource.useReplaceRule
-                        )
+                        replaceContents = BookHelp.disposeContent(book, chapter.title, bookContent)
                     }
                     job.await()
                     while (replaceContents == null) {
