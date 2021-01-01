@@ -1,14 +1,22 @@
 package io.legado.app.help
 
+import android.net.Uri
 import android.util.Base64
 import androidx.annotation.Keep
+import io.legado.app.App
 import io.legado.app.constant.AppConst.dateFormat
 import io.legado.app.help.http.CookieStore
 import io.legado.app.help.http.SSLHelper
+import io.legado.app.model.Debug
 import io.legado.app.model.analyzeRule.AnalyzeUrl
+import io.legado.app.model.analyzeRule.QueryTTF
 import io.legado.app.utils.*
+import kotlinx.coroutines.runBlocking
 import org.jsoup.Connection
 import org.jsoup.Jsoup
+import rxhttp.wrapper.param.RxHttp
+import rxhttp.wrapper.param.toByteArray
+import java.io.File
 import java.net.URLEncoder
 import java.nio.charset.Charset
 import java.util.*
@@ -18,42 +26,47 @@ import java.util.*
 interface JsExtensions {
 
     /**
-     * js实现跨域访问,不能删
+     * 访问网络,返回String
      */
     fun ajax(urlStr: String): String? {
-        return try {
-            val analyzeUrl = AnalyzeUrl(urlStr)
-            val call = analyzeUrl.getResponse(urlStr)
-            val response = call.execute()
-            response.body()
-        } catch (e: Exception) {
-            e.msg
+        return runBlocking {
+            try {
+                val analyzeUrl = AnalyzeUrl(urlStr)
+                analyzeUrl.getStrResponse(urlStr).body
+            } catch (e: Exception) {
+                e.printStackTrace()
+                e.msg
+            }
         }
     }
 
+    /**
+     * 访问网络,返回Response<String>
+     */
     fun connect(urlStr: String): Any {
         return try {
             val analyzeUrl = AnalyzeUrl(urlStr)
-            val call = analyzeUrl.getResponse(urlStr)
-            val response = call.execute()
-            response
+            runBlocking {
+                analyzeUrl.getStrResponse(urlStr)
+            }
         } catch (e: Exception) {
             e.msg
         }
     }
 
     /**
-     * js实现文件下载
+     * 实现16进制字符串转文件
      */
     fun downloadFile(content: String, url: String): String {
+        val type = AnalyzeUrl(url).type ?: return ""
         val zipPath = FileUtils.getPath(
             FileUtils.createFolderIfNotExist(FileUtils.getCachePath()),
-            "${MD5Utils.md5Encode16(url)}.zip"
+            "${MD5Utils.md5Encode16(url)}.${type}"
         )
         FileUtils.deleteFile(zipPath)
         val zipFile = FileUtils.createFileIfNotExist(zipPath)
         StringUtils.hexStringToByte(content).let {
-            if (it != null) {
+            if (it.isNotEmpty()) {
                 zipFile.writeBytes(it)
             }
         }
@@ -64,6 +77,7 @@ interface JsExtensions {
      * js实现压缩文件解压
      */
     fun unzipFile(zipPath: String): String {
+        if (zipPath.isEmpty()) return ""
         val unzipPath = FileUtils.getPath(
             FileUtils.createFolderIfNotExist(FileUtils.getCachePath()),
             FileUtils.getNameExcludeExtension(zipPath)
@@ -80,6 +94,7 @@ interface JsExtensions {
      * js实现文件夹内所有文件读取
      */
     fun getTxtInFolder(unzipPath: String): String {
+        if (unzipPath.isEmpty()) return ""
         val unzipFolder = FileUtils.createFolderIfNotExist(unzipPath)
         val contents = StringBuilder()
         unzipFolder.listFiles().let {
@@ -97,7 +112,7 @@ interface JsExtensions {
     }
 
     /**
-     * js实现重定向拦截,不能删
+     * js实现重定向拦截,网络访问get
      */
     fun get(urlStr: String, headers: Map<String, String>): Connection.Response {
         return Jsoup.connect(urlStr)
@@ -109,6 +124,9 @@ interface JsExtensions {
             .execute()
     }
 
+    /**
+     * 网络访问post
+     */
     fun post(urlStr: String, body: String, headers: Map<String, String>): Connection.Response {
         return Jsoup.connect(urlStr)
             .sslSocketFactory(SSLHelper.unsafeSSLSocketFactory)
@@ -120,10 +138,10 @@ interface JsExtensions {
             .execute()
     }
 
-     /**
-      *js实现读取cookie
-      */
-     fun getCookie(tag: String, key: String? = null): String {
+    /**
+     *js实现读取cookie
+     */
+    fun getCookie(tag: String, key: String? = null): String {
         val cookie = CookieStore.getCookie(tag)
         val cookieMap = CookieStore.cookieToMap(cookie)
         return if (key != null) {
@@ -131,20 +149,38 @@ interface JsExtensions {
         } else {
             cookie
         }
-     }
+    }
 
     /**
      * js实现解码,不能删
      */
     fun base64Decode(str: String): String {
-        return EncoderUtils.base64Decode(str)
+        return EncoderUtils.base64Decode(str, Base64.NO_WRAP)
+    }
+
+    fun base64Decode(str: String, flags: Int): String {
+        return EncoderUtils.base64Decode(str, flags)
+    }
+
+    fun base64DecodeToByteArray(str: String?): ByteArray? {
+        if (str.isNullOrBlank()) {
+            return null
+        }
+        return Base64.decode(str, Base64.DEFAULT)
+    }
+
+    fun base64DecodeToByteArray(str: String?, flags: Int): ByteArray? {
+        if (str.isNullOrBlank()) {
+            return null
+        }
+        return Base64.decode(str, flags)
     }
 
     fun base64Encode(str: String): String? {
-        return EncoderUtils.base64Encode(str)
+        return EncoderUtils.base64Encode(str, Base64.NO_WRAP)
     }
 
-    fun base64Encode(str: String, flags: Int = Base64.NO_WRAP): String? {
+    fun base64Encode(str: String, flags: Int): String? {
         return EncoderUtils.base64Encode(str, flags)
     }
 
@@ -156,11 +192,16 @@ interface JsExtensions {
         return MD5Utils.md5Encode16(str)
     }
 
+    /**
+     * 时间格式化
+     */
     fun timeFormat(time: Long): String {
         return dateFormat.format(Date(time))
     }
 
-    //utf8编码转gbk编码
+    /**
+     * utf8编码转gbk编码
+     */
     fun utf8ToGbk(str: String): String {
         val utf8 = String(str.toByteArray(charset("UTF-8")))
         val unicode = String(utf8.toByteArray(), charset("UTF-8"))
@@ -175,7 +216,82 @@ interface JsExtensions {
         }
     }
 
+    fun encodeURI(str: String, enc: String): String {
+        return try {
+            URLEncoder.encode(str, enc)
+        } catch (e: Exception) {
+            ""
+        }
+    }
+
     fun htmlFormat(str: String): String {
         return str.htmlFormat()
+    }
+
+    /**
+     * 读取本地文件
+     */
+    fun readFile(path: String): ByteArray? {
+        return File(path).readBytes()
+    }
+
+    /**
+     * 解析字体,返回字体解析类
+     */
+    fun queryBase64TTF(base64: String?): QueryTTF? {
+        base64DecodeToByteArray(base64)?.let {
+            return QueryTTF(it)
+        }
+        return null
+    }
+
+    fun queryTTF(str: String?): QueryTTF? {
+        str ?: return null
+        val key = md5Encode16(str)
+        var qTTF = CacheManager.getQueryTTF(key)
+        if (qTTF != null) return qTTF
+        val font: ByteArray? = when {
+            str.isAbsUrl() -> runBlocking {
+                var x = CacheManager.getByteArray(key)
+                if (x == null) {
+                    x = RxHttp.get(str).toByteArray().await()
+                    x.let {
+                        CacheManager.put(key, it)
+                    }
+                }
+                return@runBlocking x
+            }
+            str.isContentScheme() -> Uri.parse(str).readBytes(App.INSTANCE)
+            str.startsWith("/storage") -> File(str).readBytes()
+            else -> base64DecodeToByteArray(str)
+        }
+        font ?: return null
+        qTTF = QueryTTF(font)
+        CacheManager.put(key, qTTF)
+        return qTTF
+    }
+
+    fun replaceFont(
+        text: String,
+        font1: QueryTTF?,
+        font2: QueryTTF?
+    ): String {
+        if (font1 == null || font2 == null) return text
+        val contentArray = text.toCharArray()
+        contentArray.forEachIndexed { index, s ->
+            val oldCode = s.toInt()
+            if (font1.inLimit(s)) {
+                val code = font2.getCodeByGlyf(font1.getGlyfByCode(oldCode))
+                if (code != 0) contentArray[index] = code.toChar()
+            }
+        }
+        return contentArray.joinToString("")
+    }
+
+    /**
+     * 输出调试日志
+     */
+    fun log(msg: String) {
+        Debug.log(msg)
     }
 }

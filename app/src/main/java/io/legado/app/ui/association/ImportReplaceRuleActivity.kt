@@ -2,35 +2,35 @@ package io.legado.app.ui.association
 
 import android.os.Bundle
 import io.legado.app.App
-import io.legado.app.R
 import io.legado.app.base.VMBaseActivity
 import io.legado.app.constant.Theme
 import io.legado.app.data.entities.ReplaceRule
+import io.legado.app.databinding.ActivityTranslucenceBinding
 import io.legado.app.help.IntentDataHelp
 import io.legado.app.lib.dialogs.alert
-import io.legado.app.lib.dialogs.noButton
-import io.legado.app.lib.dialogs.okButton
-import io.legado.app.utils.applyTint
 import io.legado.app.utils.getViewModel
-import kotlinx.android.synthetic.main.activity_translucence.*
 import org.jetbrains.anko.toast
 
-class ImportReplaceRuleActivity : VMBaseActivity<ImportReplaceRuleViewModel>(
-    R.layout.activity_translucence,
-    theme = Theme.Transparent
-) {
+class ImportReplaceRuleActivity :
+    VMBaseActivity<ActivityTranslucenceBinding, ImportReplaceRuleViewModel>(
+        theme = Theme.Transparent
+    ) {
+
+    override fun getViewBinding(): ActivityTranslucenceBinding {
+        return ActivityTranslucenceBinding.inflate(layoutInflater)
+    }
 
     override val viewModel: ImportReplaceRuleViewModel
         get() = getViewModel(ImportReplaceRuleViewModel::class.java)
 
     override fun onActivityCreated(savedInstanceState: Bundle?) {
-        rotate_loading.show()
+        binding.rotateLoading.show()
         viewModel.errorLiveData.observe(this, {
-            rotate_loading.hide()
+            binding.rotateLoading.hide()
             errorDialog(it)
         })
         viewModel.successLiveData.observe(this, {
-            rotate_loading.hide()
+            binding.rotateLoading.hide()
             if (it.size > 0) {
                 successDialog(it)
             } else {
@@ -65,7 +65,7 @@ class ImportReplaceRuleActivity : VMBaseActivity<ImportReplaceRuleViewModel>(
                     }
                 }
                 else -> {
-                    rotate_loading.hide()
+                    binding.rotateLoading.hide()
                     toast("格式不对")
                     finish()
                 }
@@ -76,21 +76,21 @@ class ImportReplaceRuleActivity : VMBaseActivity<ImportReplaceRuleViewModel>(
     private fun errorDialog(msg: String) {
         alert("导入出错", msg) {
             okButton { }
-        }.show().applyTint().setOnDismissListener {
-            finish()
-        }
+            onDismiss {
+                finish()
+            }
+        }.show()
     }
 
     private fun successDialog(allSource: ArrayList<ReplaceRule>) {
         alert("解析结果", "共${allSource.size}个替换规则,是否确认导入?") {
             okButton {
-                App.db.replaceRuleDao().insert(*allSource.toTypedArray())
+                App.db.replaceRuleDao.insert(*allSource.toTypedArray())
             }
-            noButton {
-
+            noButton()
+            onDismiss {
+                finish()
             }
-        }.show().applyTint().setOnDismissListener {
-            finish()
-        }
+        }.show()
     }
 }

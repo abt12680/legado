@@ -1,6 +1,5 @@
 package io.legado.app.utils
 
-import retrofit2.Response
 import java.net.InetAddress
 import java.net.NetworkInterface
 import java.net.SocketException
@@ -10,11 +9,6 @@ import java.util.regex.Pattern
 
 @Suppress("unused", "MemberVisibilityCanBePrivate")
 object NetworkUtils {
-    fun getUrl(response: Response<*>): String {
-        val networkResponse = response.raw().networkResponse()
-        return networkResponse?.request()?.url()?.toString()
-            ?: response.raw().request().url().toString()
-    }
 
     private val notNeedEncoding: BitSet by lazy {
         val bitSet = BitSet(256)
@@ -75,13 +69,29 @@ object NetworkUtils {
     /**
      * 获取绝对地址
      */
-    fun getAbsoluteURL(baseURL: String?, relativePath: String?): String? {
+    fun getAbsoluteURL(baseURL: String?, relativePath: String): String {
         if (baseURL.isNullOrEmpty()) return relativePath
-        if (relativePath.isNullOrEmpty()) return baseURL
+        if (relativePath.isAbsUrl()) return relativePath
         var relativeUrl = relativePath
         try {
             val absoluteUrl = URL(baseURL.substringBefore(","))
             val parseUrl = URL(absoluteUrl, relativePath)
+            relativeUrl = parseUrl.toString()
+            return relativeUrl
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        return relativeUrl
+    }
+
+    /**
+     * 获取绝对地址
+     */
+    fun getAbsoluteURL(baseURL: URL?, relativePath: String): String {
+        if (baseURL == null) return relativePath
+        var relativeUrl = relativePath
+        try {
+            val parseUrl = URL(baseURL, relativePath)
             relativeUrl = parseUrl.toString()
             return relativeUrl
         } catch (e: Exception) {
@@ -98,14 +108,13 @@ object NetworkUtils {
         } else url.substring(0, index)
     }
 
-   fun getSubDomain(url: String?): String {
-        var baseUrl = getBaseUrl(url)
-        if (baseUrl == null) return ""
+    fun getSubDomain(url: String?): String {
+        val baseUrl = getBaseUrl(url) ?: return ""
         return if (baseUrl.indexOf(".") == baseUrl.lastIndexOf(".")) {
-            baseUrl.substring(baseUrl.lastIndexOf("/")+1)
-        } else baseUrl.substring(baseUrl.indexOf(".")+1)
+            baseUrl.substring(baseUrl.lastIndexOf("/") + 1)
+        } else baseUrl.substring(baseUrl.indexOf(".") + 1)
     }
-    
+
     /**
      * Get local Ip address.
      */

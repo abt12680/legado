@@ -5,10 +5,13 @@ import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Ignore
 import androidx.room.Index
+import io.legado.app.model.analyzeRule.AnalyzeUrl
 import io.legado.app.utils.GSON
+import io.legado.app.utils.MD5Utils
+import io.legado.app.utils.NetworkUtils
 import io.legado.app.utils.fromJsonObject
-import kotlinx.android.parcel.IgnoredOnParcel
-import kotlinx.android.parcel.Parcelize
+import kotlinx.parcelize.IgnoredOnParcel
+import kotlinx.parcelize.Parcelize
 
 
 @Parcelize
@@ -26,13 +29,14 @@ import kotlinx.android.parcel.Parcelize
 )    // 删除书籍时自动删除章节
 data class BookChapter(
     var url: String = "",               // 章节地址
-    var title: String = "",              // 章节标题
+    var title: String = "",             // 章节标题
+    var baseUrl: String = "",           //用来拼接相对url
     var bookUrl: String = "",           // 书籍地址
     var index: Int = 0,                 // 章节序号
     var resourceUrl: String? = null,    // 音频真实URL
     var tag: String? = null,            //
     var start: Long? = null,            // 章节起始位置
-    var end: Long? = null,               // 章节终止位置
+    var end: Long? = null,              // 章节终止位置
     var variable: String? = null        //变量
 ) : Parcelable {
 
@@ -57,5 +61,17 @@ data class BookChapter(
         return false
     }
 
+    fun getAbsoluteURL(): String {
+        val urlArray = url.split(AnalyzeUrl.splitUrlRegex)
+        var absoluteUrl = NetworkUtils.getAbsoluteURL(baseUrl, urlArray[0])
+        if (urlArray.size > 1) {
+            absoluteUrl = "$absoluteUrl,${urlArray[1]}"
+        }
+        return absoluteUrl
+    }
+
+    fun getFileName(): String = String.format("%05d-%s.nb", index, MD5Utils.md5Encode16(title))
+
+    fun getFontName(): String = String.format("%05d-%s.ttf", index, MD5Utils.md5Encode16(title))
 }
 

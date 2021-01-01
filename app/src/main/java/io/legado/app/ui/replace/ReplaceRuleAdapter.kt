@@ -3,26 +3,65 @@ package io.legado.app.ui.replace
 import android.content.Context
 import android.os.Bundle
 import android.view.View
+import android.view.ViewGroup
 import android.widget.PopupMenu
 import androidx.core.os.bundleOf
+import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.RecyclerView
 import io.legado.app.R
 import io.legado.app.base.adapter.ItemViewHolder
-import io.legado.app.base.adapter.SimpleRecyclerAdapter
+import io.legado.app.base.adapter.RecyclerAdapter
 import io.legado.app.data.entities.ReplaceRule
+import io.legado.app.databinding.ItemReplaceRuleBinding
 import io.legado.app.lib.theme.backgroundColor
 import io.legado.app.ui.widget.recycler.DragSelectTouchHelper
 import io.legado.app.ui.widget.recycler.ItemTouchCallback
-import kotlinx.android.synthetic.main.item_replace_rule.view.*
 import org.jetbrains.anko.sdk27.listeners.onClick
 import java.util.*
 
 
 class ReplaceRuleAdapter(context: Context, var callBack: CallBack) :
-    SimpleRecyclerAdapter<ReplaceRule>(context, R.layout.item_replace_rule),
+    RecyclerAdapter<ReplaceRule, ItemReplaceRuleBinding>(context),
     ItemTouchCallback.Callback {
 
     private val selected = linkedSetOf<ReplaceRule>()
+
+    val diffItemCallBack = object : DiffUtil.ItemCallback<ReplaceRule>() {
+
+        override fun areItemsTheSame(oldItem: ReplaceRule, newItem: ReplaceRule): Boolean {
+            return oldItem.id == newItem.id
+        }
+
+        override fun areContentsTheSame(oldItem: ReplaceRule, newItem: ReplaceRule): Boolean {
+            if (oldItem.name != newItem.name) {
+                return false
+            }
+            if (oldItem.group != newItem.group) {
+                return false
+            }
+            if (oldItem.isEnabled != newItem.isEnabled) {
+                return false
+            }
+            return true
+        }
+
+        override fun getChangePayload(oldItem: ReplaceRule, newItem: ReplaceRule): Any? {
+            val payload = Bundle()
+            if (oldItem.name != newItem.name) {
+                payload.putString("name", newItem.name)
+            }
+            if (oldItem.group != newItem.group) {
+                payload.putString("group", newItem.group)
+            }
+            if (oldItem.isEnabled != newItem.isEnabled) {
+                payload.putBoolean("enabled", newItem.isEnabled)
+            }
+            if (payload.isEmpty) {
+                return null
+            }
+            return payload
+        }
+    }
 
     fun selectAll() {
         getItems().forEach {
@@ -54,53 +93,68 @@ class ReplaceRuleAdapter(context: Context, var callBack: CallBack) :
         return selection
     }
 
-    override fun convert(holder: ItemViewHolder, item: ReplaceRule, payloads: MutableList<Any>) {
-        with(holder.itemView) {
+    override fun getViewBinding(parent: ViewGroup): ItemReplaceRuleBinding {
+        return ItemReplaceRuleBinding.inflate(inflater, parent, false)
+    }
+
+    override fun onCurrentListChanged() {
+        callBack.upCountView()
+    }
+
+    override fun convert(
+        holder: ItemViewHolder,
+        binding: ItemReplaceRuleBinding,
+        item: ReplaceRule,
+        payloads: MutableList<Any>
+    ) {
+        with(binding) {
             val bundle = payloads.getOrNull(0) as? Bundle
             if (bundle == null) {
-                this.setBackgroundColor(context.backgroundColor)
+                root.setBackgroundColor(context.backgroundColor)
                 if (item.group.isNullOrEmpty()) {
-                    cb_name.text = item.name
+                    cbName.text = item.name
                 } else {
-                    cb_name.text =
+                    cbName.text =
                         String.format("%s (%s)", item.name, item.group)
                 }
-                swt_enabled.isChecked = item.isEnabled
-                cb_name.isChecked = selected.contains(item)
+                swtEnabled.isChecked = item.isEnabled
+                cbName.isChecked = selected.contains(item)
             } else {
                 bundle.keySet().map {
                     when (it) {
-                        "selected" -> cb_name.isChecked = selected.contains(item)
+                        "selected" -> cbName.isChecked = selected.contains(item)
                         "name", "group" ->
                             if (item.group.isNullOrEmpty()) {
-                                cb_name.text = item.name
+                                cbName.text = item.name
                             } else {
-                                cb_name.text =
+                                cbName.text =
                                     String.format("%s (%s)", item.name, item.group)
                             }
-                        "enabled" -> swt_enabled.isChecked = item.isEnabled
+                        "enabled" -> swtEnabled.isChecked = item.isEnabled
                     }
                 }
             }
         }
     }
 
-    override fun registerListener(holder: ItemViewHolder) {
-        holder.itemView.apply {
-            swt_enabled.setOnCheckedChangeListener { _, isChecked ->
-                getItem(holder.layoutPosition)?.let {
-                    it.isEnabled = isChecked
-                    callBack.update(it)
+    override fun registerListener(holder: ItemViewHolder, binding: ItemReplaceRuleBinding) {
+        binding.apply {
+            swtEnabled.setOnCheckedChangeListener { buttonView, isChecked ->
+                if (buttonView.isPressed) {
+                    getItem(holder.layoutPosition)?.let {
+                        it.isEnabled = isChecked
+                        callBack.update(it)
+                    }
                 }
             }
-            iv_edit.onClick {
+            ivEdit.onClick {
                 getItem(holder.layoutPosition)?.let {
                     callBack.edit(it)
                 }
             }
-            cb_name.onClick {
+            cbName.onClick {
                 getItem(holder.layoutPosition)?.let {
-                    if (cb_name.isChecked) {
+                    if (cbName.isChecked) {
                         selected.add(it)
                     } else {
                         selected.remove(it)
@@ -108,8 +162,8 @@ class ReplaceRuleAdapter(context: Context, var callBack: CallBack) :
                 }
                 callBack.upCountView()
             }
-            iv_menu_more.onClick {
-                showMenu(iv_menu_more, holder.layoutPosition)
+            ivMenuMore.onClick {
+                showMenu(ivMenuMore, holder.layoutPosition)
             }
         }
     }
@@ -129,7 +183,7 @@ class ReplaceRuleAdapter(context: Context, var callBack: CallBack) :
         popupMenu.show()
     }
 
-    override fun onMove(srcPosition: Int, targetPosition: Int): Boolean {
+    override fun swap(srcPosition: Int, targetPosition: Int): Boolean {
         val srcItem = getItem(srcPosition)
         val targetItem = getItem(targetPosition)
         if (srcItem != null && targetItem != null) {
@@ -143,8 +197,7 @@ class ReplaceRuleAdapter(context: Context, var callBack: CallBack) :
                 movedItems.add(targetItem)
             }
         }
-        Collections.swap(getItems(), srcPosition, targetPosition)
-        notifyItemMoved(srcPosition, targetPosition)
+        swapItem(srcPosition, targetPosition)
         return true
     }
 
@@ -157,8 +210,8 @@ class ReplaceRuleAdapter(context: Context, var callBack: CallBack) :
         }
     }
 
-    fun initDragSelectTouchHelperCallback(): DragSelectTouchHelper.Callback {
-        return object : DragSelectTouchHelper.AdvanceCallback<ReplaceRule>(Mode.ToggleAndReverse) {
+    val dragSelectCallback: DragSelectTouchHelper.Callback =
+        object : DragSelectTouchHelper.AdvanceCallback<ReplaceRule>(Mode.ToggleAndReverse) {
             override fun currentSelectedId(): MutableSet<ReplaceRule> {
                 return selected
             }
@@ -181,7 +234,6 @@ class ReplaceRuleAdapter(context: Context, var callBack: CallBack) :
                 return false
             }
         }
-    }
 
     interface CallBack {
         fun update(vararg rule: ReplaceRule)

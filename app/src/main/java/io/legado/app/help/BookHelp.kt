@@ -1,22 +1,16 @@
 package io.legado.app.help
 
-import com.hankcs.hanlp.HanLP
 import io.legado.app.App
 import io.legado.app.constant.AppPattern
 import io.legado.app.constant.EventBus
 import io.legado.app.data.entities.Book
 import io.legado.app.data.entities.BookChapter
-import io.legado.app.data.entities.ReplaceRule
 import io.legado.app.help.coroutine.Coroutine
 import io.legado.app.model.analyzeRule.AnalyzeUrl
 import io.legado.app.model.localBook.LocalBook
 import io.legado.app.utils.*
-import kotlinx.coroutines.Dispatchers.Main
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.withContext
-import net.ricecode.similarity.JaroWinklerStrategy
-import net.ricecode.similarity.StringSimilarityServiceImpl
-import org.jetbrains.anko.toast
+import org.apache.commons.text.similarity.JaccardSimilarity
 import java.io.File
 import java.util.concurrent.CopyOnWriteArraySet
 import java.util.regex.Matcher
@@ -30,14 +24,6 @@ object BookHelp {
     private const val cacheImageFolderName = "images"
     private val downloadDir: File = App.INSTANCE.externalFilesDir
     private val downloadImages = CopyOnWriteArraySet<String>()
-
-    fun formatChapterName(bookChapter: BookChapter): String {
-        return String.format(
-            "%05d-%s.nb",
-            bookChapter.index,
-            MD5Utils.md5Encode16(bookChapter.title)
-        )
-    }
 
     fun clearCache() {
         FileUtils.deleteFile(
@@ -56,7 +42,7 @@ object BookHelp {
     fun clearRemovedCache() {
         Coroutine.async {
             val bookFolderNames = arrayListOf<String>()
-            App.db.bookDao().all.forEach {
+            App.db.bookDao.all.forEach {
                 bookFolderNames.add(it.getFolderName())
             }
             val file = FileUtils.getFile(downloadDir, cacheFolderName)
@@ -75,20 +61,44 @@ object BookHelp {
             downloadDir,
             cacheFolderName,
             book.getFolderName(),
-            formatChapterName(bookChapter),
+            bookChapter.getFileName(),
         ).writeText(content)
         //保存图片
         content.split("\n").forEach {
             val matcher = AppPattern.imgPattern.matcher(it)
             if (matcher.find()) {
-                var src = matcher.group(1)
-                src = NetworkUtils.getAbsoluteURL(bookChapter.url, src)
-                src?.let {
-                    saveImage(book, src)
+                matcher.group(1)?.let { src ->
+                    val mSrc = NetworkUtils.getAbsoluteURL(bookChapter.url, src)
+                    saveImage(book, mSrc)
                 }
             }
         }
         postEvent(EventBus.SAVE_CONTENT, bookChapter)
+    }
+
+    @Suppress("unused")
+    fun saveFont(book: Book, bookChapter: BookChapter, font: ByteArray) {
+        FileUtils.createFileIfNotExist(
+            downloadDir,
+            cacheFolderName,
+            book.getFolderName(),
+            "font",
+            bookChapter.getFontName()
+        ).writeBytes(font)
+    }
+
+    fun getFontPath(book: Book, bookChapter: BookChapter): String? {
+        val fontFile = FileUtils.getFile(
+            downloadDir,
+            cacheFolderName,
+            book.getFolderName(),
+            "font",
+            bookChapter.getFontName()
+        )
+        if (fontFile.exists()) {
+            return fontFile.absolutePath
+        }
+        return null
     }
 
     suspend fun saveImage(book: Book, src: String) {
@@ -101,7 +111,7 @@ object BookHelp {
         downloadImages.add(src)
         val analyzeUrl = AnalyzeUrl(src)
         try {
-            analyzeUrl.getResponseBytes(book.origin)?.let {
+            analyzeUrl.getByteArray(book.origin).let {
                 FileUtils.createFileIfNotExist(
                     downloadDir,
                     cacheFolderName,
@@ -158,7 +168,7 @@ object BookHelp {
                 downloadDir,
                 cacheFolderName,
                 book.getFolderName(),
-                formatChapterName(bookChapter)
+                bookChapter.getFileName()
             )
         }
     }
@@ -171,7 +181,7 @@ object BookHelp {
                 downloadDir,
                 cacheFolderName,
                 book.getFolderName(),
-                formatChapterName(bookChapter)
+                bookChapter.getFileName()
             )
             if (file.exists()) {
                 return file.readText()
@@ -188,7 +198,7 @@ object BookHelp {
                 downloadDir,
                 cacheFolderName,
                 book.getFolderName(),
-                formatChapterName(bookChapter)
+                bookChapter.getFileName()
             ).delete()
         }
     }
@@ -205,6 +215,10 @@ object BookHelp {
             .trim { it <= ' ' }
     }
 
+    private val jaccardSimilarity by lazy {
+        JaccardSimilarity()
+    }
+
     /**
      * 根据目录名获取当前章节
      */
@@ -214,7 +228,8 @@ object BookHelp {
         oldDurChapterName: String?,
         newChapterList: List<BookChapter>
     ): Int {
-        if (oldChapterListSize == 0) return 0
+        if (oldChapterListSize == 0) return oldDurChapterIndex
+        if (newChapterList.isEmpty()) return oldDurChapterIndex
         val oldChapterNum = getChapterNum(oldDurChapterName)
         val oldName = getPureChapterName(oldDurChapterName)
         val newChapterSize = newChapterList.size
@@ -236,10 +251,9 @@ object BookHelp {
         var newIndex = 0
         var newNum = 0
         if (oldName.isNotEmpty()) {
-            val service = StringSimilarityServiceImpl(JaroWinklerStrategy())
             for (i in min..max) {
                 val newName = getPureChapterName(newChapterList[i].title)
-                val temp = service.score(oldName, newName)
+                val temp = jaccardSimilarity.apply(oldName, newName)
                 if (temp > nameSim) {
                     nameSim = temp
                     newIndex = i
@@ -301,90 +315,4 @@ object BookHelp {
             .replace(regexOther, "")
     }
 
-    private var bookName: String? = null
-    private var bookOrigin: String? = null
-    private var replaceRules: List<ReplaceRule> = arrayListOf()
-
-    @Synchronized
-    fun upReplaceRules() {
-        val o = bookOrigin
-        bookName?.let {
-            replaceRules = if (o.isNullOrEmpty()) {
-                App.db.replaceRuleDao().findEnabledByScope(it)
-            } else {
-                App.db.replaceRuleDao().findEnabledByScope(it, o)
-            }
-        }
-    }
-
-    suspend fun disposeContent(
-        book: Book,
-        title: String,
-        content: String,
-    ): List<String> {
-        var title1 = title
-        var content1 = content
-        if (book.getUseReplaceRule()) {
-            synchronized(this) {
-                if (bookName != book.name || bookOrigin != book.origin) {
-                    bookName = book.name
-                    bookOrigin = book.origin
-                    replaceRules = if (bookOrigin.isNullOrEmpty()) {
-                        App.db.replaceRuleDao().findEnabledByScope(bookName!!)
-                    } else {
-                        App.db.replaceRuleDao().findEnabledByScope(bookName!!, bookOrigin!!)
-                    }
-                }
-            }
-            replaceRules.forEach { item ->
-                item.pattern.let {
-                    if (it.isNotEmpty()) {
-                        try {
-                            content1 = if (item.isRegex) {
-                                content1.replace(it.toRegex(), item.replacement)
-                            } else {
-                                content1.replace(it, item.replacement)
-                            }
-                        } catch (e: Exception) {
-                            withContext(Main) {
-                                App.INSTANCE.toast("${item.name}替换出错")
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        if (book.getReSegment()) {
-            content1 = ContentHelp.reSegment(content1, title1)
-        }
-        try {
-            when (AppConfig.chineseConverterType) {
-                1 -> {
-                    title1 = HanLP.convertToSimplifiedChinese(title1)
-                    content1 = HanLP.convertToSimplifiedChinese(content1)
-                }
-                2 -> {
-                    title1 = HanLP.convertToTraditionalChinese(title1)
-                    content1 = HanLP.convertToTraditionalChinese(content1)
-                }
-            }
-        } catch (e: Exception) {
-            withContext(Main) {
-                App.INSTANCE.toast("简繁转换出错")
-            }
-        }
-        val contents = arrayListOf<String>()
-        content1.split("\n").forEach {
-            val str = it.replace("^[\\n\\s\\r]+".toRegex(), "")
-            if (contents.isEmpty()) {
-                contents.add(title1)
-                if (str != title1 && str.isNotEmpty()) {
-                    contents.add("${ReadBookConfig.paragraphIndent}$str")
-                }
-            } else if (str.isNotEmpty()) {
-                contents.add("${ReadBookConfig.paragraphIndent}$str")
-            }
-        }
-        return contents
-    }
 }

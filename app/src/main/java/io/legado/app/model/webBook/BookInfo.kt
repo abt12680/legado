@@ -27,27 +27,28 @@ object BookInfo {
         Debug.log(bookSource.bookSourceUrl, "≡获取成功:${baseUrl}")
         val infoRule = bookSource.getBookInfoRule()
         val analyzeRule = AnalyzeRule(book)
-        analyzeRule.setContent(body, baseUrl)
+        analyzeRule.setContent(body).setBaseUrl(baseUrl)
         infoRule.init?.let {
-            if (it.isNotEmpty()) {
+            if (it.isNotBlank()) {
                 Debug.log(bookSource.bookSourceUrl, "≡执行详情页初始化规则")
                 analyzeRule.setContent(analyzeRule.getElement(it))
             }
         }
+        val mCanReName = canReName && !infoRule.canReName.isNullOrBlank()
         Debug.log(bookSource.bookSourceUrl, "┌获取书名")
         BookHelp.formatBookName(analyzeRule.getString(infoRule.name)).let {
-            if (it.isNotEmpty() && (canReName || book.name.isEmpty())) {
+            if (it.isNotEmpty() && (mCanReName || book.name.isEmpty())) {
                 book.name = it
             }
+            Debug.log(bookSource.bookSourceUrl, "└${it}")
         }
-        Debug.log(bookSource.bookSourceUrl, "└${book.name}")
         Debug.log(bookSource.bookSourceUrl, "┌获取作者")
         BookHelp.formatBookAuthor(analyzeRule.getString(infoRule.author)).let {
-            if (it.isNotEmpty() && (canReName || book.name.isEmpty())) {
+            if (it.isNotEmpty() && (mCanReName || book.author.isEmpty())) {
                 book.author = it
             }
+            Debug.log(bookSource.bookSourceUrl, "└${it}")
         }
-        Debug.log(bookSource.bookSourceUrl, "└${book.author}")
         Debug.log(bookSource.bookSourceUrl, "┌获取分类")
         analyzeRule.getStringList(infoRule.kind)
             ?.joinToString(",")
@@ -69,7 +70,7 @@ object BookInfo {
         analyzeRule.getString(infoRule.intro).let {
             if (it.isNotEmpty()) book.intro = it.htmlFormat()
         }
-        Debug.log(bookSource.bookSourceUrl, "└${book.intro}", isHtml = true)
+        Debug.log(bookSource.bookSourceUrl, "└${book.intro}")
 
         Debug.log(bookSource.bookSourceUrl, "┌获取封面链接")
         analyzeRule.getString(infoRule.coverUrl).let {

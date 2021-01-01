@@ -38,7 +38,7 @@ object BookList {
         Debug.log(bookSource.bookSourceUrl, "≡获取成功:${analyzeUrl.ruleUrl}")
         if (!scope.isActive) throw CancellationException()
         val analyzeRule = AnalyzeRule(variableBook)
-        analyzeRule.setContent(body, baseUrl)
+        analyzeRule.setContent(body).setBaseUrl(baseUrl)
         bookSource.bookUrlPattern?.let {
             if (baseUrl.matches(it.toRegex())) {
                 Debug.log(bookSource.bookSourceUrl, "≡链接为详情页")
@@ -163,7 +163,7 @@ object BookList {
                 if (!scope.isActive) throw CancellationException()
                 Debug.log(bookSource.bookSourceUrl, "┌获取简介")
                 searchBook.intro = analyzeRule.getString(intro).htmlFormat()
-                Debug.log(bookSource.bookSourceUrl, "└${searchBook.intro}", true)
+                Debug.log(bookSource.bookSourceUrl, "└${searchBook.intro}")
                 if (!scope.isActive) throw CancellationException()
                 Debug.log(bookSource.bookSourceUrl, "┌获取封面链接")
                 searchBook.coverUrl = analyzeRule.getString(coverUrl, true)
@@ -223,7 +223,7 @@ object BookList {
             if (!scope.isActive) throw CancellationException()
             Debug.log(bookSource.bookSourceUrl, "┌获取简介", log)
             searchBook.intro = analyzeRule.getString(ruleIntro).htmlFormat()
-            Debug.log(bookSource.bookSourceUrl, "└${searchBook.intro}", log, true)
+            Debug.log(bookSource.bookSourceUrl, "└${searchBook.intro}", log)
             if (!scope.isActive) throw CancellationException()
             Debug.log(bookSource.bookSourceUrl, "┌获取封面链接", log)
             analyzeRule.getString(ruleCoverUrl).let {

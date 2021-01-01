@@ -18,6 +18,7 @@ import io.legado.app.constant.BookType
 import io.legado.app.constant.Theme
 import io.legado.app.data.entities.Book
 import io.legado.app.data.entities.BookChapter
+import io.legado.app.databinding.ActivityBookInfoBinding
 import io.legado.app.help.BlurTransformation
 import io.legado.app.help.ImageLoader
 import io.legado.app.help.IntentDataHelp
@@ -36,7 +37,6 @@ import io.legado.app.ui.book.source.edit.BookSourceEditActivity
 import io.legado.app.ui.book.toc.ChapterListActivity
 import io.legado.app.ui.widget.image.CoverImageView
 import io.legado.app.utils.*
-import kotlinx.android.synthetic.main.activity_book_info.*
 import org.jetbrains.anko.sdk27.listeners.onClick
 import org.jetbrains.anko.startActivity
 import org.jetbrains.anko.startActivityForResult
@@ -44,27 +44,32 @@ import org.jetbrains.anko.toast
 
 
 class BookInfoActivity :
-    VMBaseActivity<BookInfoViewModel>(R.layout.activity_book_info, toolBarTheme = Theme.Dark),
+    VMBaseActivity<ActivityBookInfoBinding, BookInfoViewModel>(toolBarTheme = Theme.Dark),
     GroupSelectDialog.CallBack,
     ChapterListAdapter.CallBack,
     ChangeSourceDialog.CallBack,
     ChangeCoverDialog.CallBack {
 
     private val requestCodeChapterList = 568
-    private val requestCodeSourceEdit = 562
+    private val requestCodeInfoEdit = 562
     private val requestCodeRead = 432
 
     override val viewModel: BookInfoViewModel
         get() = getViewModel(BookInfoViewModel::class.java)
 
+    override fun getViewBinding(): ActivityBookInfoBinding {
+        return ActivityBookInfoBinding.inflate(layoutInflater)
+    }
+
     @SuppressLint("PrivateResource")
     override fun onActivityCreated(savedInstanceState: Bundle?) {
-        title_bar.transparent()
-        arc_view.setBgColor(backgroundColor)
-        ll_info.setBackgroundColor(backgroundColor)
-        scroll_view.setBackgroundColor(backgroundColor)
-        fl_action.setBackgroundColor(bottomBackground)
-        tv_shelf.setTextColor(getPrimaryTextColor(ColorUtils.isColorLight(bottomBackground)))
+        binding.titleBar.transparent()
+        binding.arcView.setBgColor(backgroundColor)
+        binding.llInfo.setBackgroundColor(backgroundColor)
+        binding.scrollView.setBackgroundColor(backgroundColor)
+        binding.flAction.setBackgroundColor(bottomBackground)
+        binding.tvShelf.setTextColor(getPrimaryTextColor(ColorUtils.isColorLight(bottomBackground)))
+        binding.tvToc.text = getString(R.string.toc_s, getString(R.string.loading))
         viewModel.bookData.observe(this, { showBook(it) })
         viewModel.chapterListData.observe(this, { upLoading(false, it) })
         viewModel.initData(intent)
@@ -82,7 +87,7 @@ class BookInfoActivity :
                 if (viewModel.inBookshelf) {
                     viewModel.bookData.value?.let {
                         startActivityForResult<BookInfoEditActivity>(
-                            requestCodeSourceEdit,
+                            requestCodeInfoEdit,
                             Pair("bookUrl", it.bookUrl)
                         )
                     }
@@ -106,6 +111,9 @@ class BookInfoActivity :
                     viewModel.loadBookInfo(it, false)
                 }
             }
+            R.id.menu_copy_url -> viewModel.bookData.value?.bookUrl?.let {
+                sendToClip(it)
+            } ?: toast(R.string.no_book)
             R.id.menu_can_update -> {
                 if (viewModel.inBookshelf) {
                     viewModel.bookData.value?.let {
@@ -127,32 +135,31 @@ class BookInfoActivity :
         return super.onMenuOpened(featureId, menu)
     }
 
-    private fun showBook(book: Book) {
+    private fun showBook(book: Book) = with(binding) {
         showCover(book)
-        tv_name.text = book.name
-        tv_author.text = getString(R.string.author_show, book.getRealAuthor())
-        tv_origin.text = getString(R.string.origin_show, book.originName)
-        tv_lasted.text = getString(R.string.lasted_show, book.latestChapterTitle)
-        tv_toc.text = getString(R.string.toc_s, getString(R.string.loading))
-        tv_intro.text = book.getDisplayIntro()
+        tvName.text = book.name
+        tvAuthor.text = getString(R.string.author_show, book.getRealAuthor())
+        tvOrigin.text = getString(R.string.origin_show, book.originName)
+        tvLasted.text = getString(R.string.lasted_show, book.latestChapterTitle)
+        tvIntro.text = book.getDisplayIntro()
         upTvBookshelf()
         val kinds = book.getKindList()
         if (kinds.isEmpty()) {
-            lb_kind.gone()
+            lbKind.gone()
         } else {
-            lb_kind.visible()
-            lb_kind.setLabels(kinds)
+            lbKind.visible()
+            lbKind.setLabels(kinds)
         }
         upGroup(book.group)
     }
 
     private fun showCover(book: Book) {
-        iv_cover.load(book.getDisplayCover(), book.name, book.author)
+        binding.ivCover.load(book.getDisplayCover(), book.name, book.author)
         ImageLoader.load(this, book.getDisplayCover())
             .transition(DrawableTransitionOptions.withCrossFade(1500))
             .thumbnail(defaultCover())
             .apply(bitmapTransform(BlurTransformation(this, 25)))
-            .into(bg_book)  //模糊、渐变、缩小效果
+            .into(binding.bgBook)  //模糊、渐变、缩小效果
     }
 
     private fun defaultCover(): RequestBuilder<Drawable> {
@@ -163,18 +170,18 @@ class BookInfoActivity :
     private fun upLoading(isLoading: Boolean, chapterList: List<BookChapter>? = null) {
         when {
             isLoading -> {
-                tv_toc.text = getString(R.string.toc_s, getString(R.string.loading))
+                binding.tvToc.text = getString(R.string.toc_s, getString(R.string.loading))
             }
             chapterList.isNullOrEmpty() -> {
-                tv_toc.text = getString(R.string.toc_s, getString(R.string.error_load_toc))
+                binding.tvToc.text = getString(R.string.toc_s, getString(R.string.error_load_toc))
             }
             else -> {
                 viewModel.bookData.value?.let {
                     if (it.durChapterIndex < chapterList.size) {
-                        tv_toc.text =
+                        binding.tvToc.text =
                             getString(R.string.toc_s, chapterList[it.durChapterIndex].title)
                     } else {
-                        tv_toc.text = getString(R.string.toc_s, chapterList.last().title)
+                        binding.tvToc.text = getString(R.string.toc_s, chapterList.last().title)
                     }
                 }
             }
@@ -183,34 +190,34 @@ class BookInfoActivity :
 
     private fun upTvBookshelf() {
         if (viewModel.inBookshelf) {
-            tv_shelf.text = getString(R.string.remove_from_bookshelf)
+            binding.tvShelf.text = getString(R.string.remove_from_bookshelf)
         } else {
-            tv_shelf.text = getString(R.string.add_to_shelf)
+            binding.tvShelf.text = getString(R.string.add_to_shelf)
         }
     }
 
     private fun upGroup(groupId: Long) {
         viewModel.loadGroup(groupId) {
             if (it.isNullOrEmpty()) {
-                tv_group.text = getString(R.string.group_s, getString(R.string.no_group))
+                binding.tvGroup.text = getString(R.string.group_s, getString(R.string.no_group))
             } else {
-                tv_group.text = getString(R.string.group_s, it)
+                binding.tvGroup.text = getString(R.string.group_s, it)
             }
         }
     }
 
-    private fun initOnClick() {
-        iv_cover.onClick {
+    private fun initOnClick() = with(binding) {
+        ivCover.onClick {
             viewModel.bookData.value?.let {
                 ChangeCoverDialog.show(supportFragmentManager, it.name, it.author)
             }
         }
-        tv_read.onClick {
+        tvRead.onClick {
             viewModel.bookData.value?.let {
                 readBook(it)
             }
         }
-        tv_shelf.onClick {
+        tvShelf.onClick {
             if (viewModel.inBookshelf) {
                 deleteBook()
             } else {
@@ -219,17 +226,17 @@ class BookInfoActivity :
                 }
             }
         }
-        tv_origin.onClick {
+        tvOrigin.onClick {
             viewModel.bookData.value?.let {
                 startActivity<BookSourceEditActivity>(Pair("data", it.origin))
             }
         }
-        tv_change_source.onClick {
+        tvChangeSource.onClick {
             viewModel.bookData.value?.let {
                 ChangeSourceDialog.show(supportFragmentManager, it.name, it.author)
             }
         }
-        tv_toc_view.onClick {
+        tvTocView.onClick {
             if (!viewModel.inBookshelf) {
                 viewModel.saveBook {
                     viewModel.saveChapterList {
@@ -240,15 +247,15 @@ class BookInfoActivity :
                 openChapterList()
             }
         }
-        tv_change_group.onClick {
+        tvChangeGroup.onClick {
             viewModel.bookData.value?.let {
                 GroupSelectDialog.show(supportFragmentManager, it.group)
             }
         }
-        tv_author.onClick {
+        tvAuthor.onClick {
             startActivity<SearchActivity>(Pair("key", viewModel.bookData.value?.author))
         }
-        tv_name.onClick {
+        tvName.onClick {
             startActivity<SearchActivity>(Pair("key", viewModel.bookData.value?.name))
         }
     }
@@ -368,7 +375,7 @@ class BookInfoActivity :
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         when (requestCode) {
-            requestCodeSourceEdit ->
+            requestCodeInfoEdit ->
                 if (resultCode == Activity.RESULT_OK) {
                     viewModel.upEditBook()
                 }

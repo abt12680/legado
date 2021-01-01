@@ -11,6 +11,7 @@ import io.legado.app.base.VMBaseActivity
 import io.legado.app.constant.EventBus
 import io.legado.app.data.entities.Book
 import io.legado.app.data.entities.BookChapter
+import io.legado.app.databinding.ActivitySearchContentBinding
 import io.legado.app.help.AppConfig
 import io.legado.app.help.BookHelp
 import io.legado.app.lib.theme.ATH
@@ -22,32 +23,37 @@ import io.legado.app.ui.widget.recycler.VerticalDivider
 import io.legado.app.utils.ColorUtils
 import io.legado.app.utils.getViewModel
 import io.legado.app.utils.observeEvent
-import kotlinx.android.synthetic.main.activity_search_content.*
-import kotlinx.android.synthetic.main.view_search.*
-import kotlinx.coroutines.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.jetbrains.anko.sdk27.listeners.onClick
 
 
 class SearchContentActivity :
-    VMBaseActivity<SearchContentViewModel>(R.layout.activity_search_content),
+    VMBaseActivity<ActivitySearchContentBinding, SearchContentViewModel>(),
     SearchContentAdapter.Callback {
 
     override val viewModel: SearchContentViewModel
         get() = getViewModel(SearchContentViewModel::class.java)
-
     lateinit var adapter: SearchContentAdapter
     private lateinit var mLayoutManager: UpLinearLayoutManager
+    private lateinit var searchView: SearchView
     private var searchResultCounts = 0
     private var durChapterIndex = 0
     private var searchResultList: MutableList<SearchResult> = mutableListOf()
 
+    override fun getViewBinding(): ActivitySearchContentBinding {
+        return ActivitySearchContentBinding.inflate(layoutInflater)
+    }
+
     override fun onActivityCreated(savedInstanceState: Bundle?) {
+        searchView = binding.titleBar.findViewById(R.id.search_view)
         val bbg = bottomBackground
         val btc = getPrimaryTextColor(ColorUtils.isColorLight(bbg))
-        ll_search_base_info.setBackgroundColor(bbg)
-        tv_current_search_info.setTextColor(btc)
-        iv_search_content_top.setColorFilter(btc)
-        iv_search_content_bottom.setColorFilter(btc)
+        binding.llSearchBaseInfo.setBackgroundColor(bbg)
+        binding.tvCurrentSearchInfo.setTextColor(btc)
+        binding.ivSearchContentTop.setColorFilter(btc)
+        binding.ivSearchContentBottom.setColorFilter(btc)
         initSearchView()
         initRecyclerView()
         initView()
@@ -59,12 +65,12 @@ class SearchContentActivity :
     }
 
     private fun initSearchView() {
-        ATH.setTint(search_view, primaryTextColor)
-        search_view.onActionViewExpanded()
-        search_view.isSubmitButtonEnabled = true
-        search_view.queryHint = getString(R.string.search)
-        search_view.clearFocus()
-        search_view.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
+        ATH.setTint(searchView, primaryTextColor)
+        searchView.onActionViewExpanded()
+        searchView.isSubmitButtonEnabled = true
+        searchView.queryHint = getString(R.string.search)
+        searchView.clearFocus()
+        searchView.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
             override fun onQueryTextSubmit(query: String): Boolean {
                 if (viewModel.lastQuery != query) {
                     startContentSearch(query)
@@ -81,14 +87,14 @@ class SearchContentActivity :
     private fun initRecyclerView() {
         adapter = SearchContentAdapter(this, this)
         mLayoutManager = UpLinearLayoutManager(this)
-        recycler_view.layoutManager = mLayoutManager
-        recycler_view.addItemDecoration(VerticalDivider(this))
-        recycler_view.adapter = adapter
+        binding.recyclerView.layoutManager = mLayoutManager
+        binding.recyclerView.addItemDecoration(VerticalDivider(this))
+        binding.recyclerView.adapter = adapter
     }
 
     private fun initView() {
-        iv_search_content_top.onClick { mLayoutManager.scrollToPositionWithOffset(0, 0) }
-        iv_search_content_bottom.onClick {
+        binding.ivSearchContentTop.onClick { mLayoutManager.scrollToPositionWithOffset(0, 0) }
+        binding.ivSearchContentBottom.onClick {
             if (adapter.itemCount > 0) {
                 mLayoutManager.scrollToPositionWithOffset(adapter.itemCount - 1, 0)
             }
@@ -97,14 +103,12 @@ class SearchContentActivity :
 
     @SuppressLint("SetTextI18n")
     private fun initBook() {
-        launch {
-            tv_current_search_info.text = "搜索结果：$searchResultCounts"
-            viewModel.book?.let {
-                initCacheFileNames(it)
-                durChapterIndex = it.durChapterIndex
-                intent.getStringExtra("searchWord")?.let { searchWord ->
-                    search_view.setQuery(searchWord, true)
-                }
+        binding.tvCurrentSearchInfo.text = "搜索结果：$searchResultCounts"
+        viewModel.book?.let {
+            initCacheFileNames(it)
+            durChapterIndex = it.durChapterIndex
+            intent.getStringExtra("searchWord")?.let { searchWord ->
+                searchView.setQuery(searchWord, true)
             }
         }
     }
@@ -113,7 +117,7 @@ class SearchContentActivity :
         launch(Dispatchers.IO) {
             adapter.cacheFileNames.addAll(BookHelp.getChapterFiles(book))
             withContext(Dispatchers.Main) {
-                adapter.notifyItemRangeChanged(0, adapter.getActualItemCount(), true)
+                adapter.notifyItemRangeChanged(0, adapter.itemCount, true)
             }
         }
     }
@@ -122,7 +126,7 @@ class SearchContentActivity :
         observeEvent<BookChapter>(EventBus.SAVE_CONTENT) { chapter ->
             viewModel.book?.bookUrl?.let { bookUrl ->
                 if (chapter.bookUrl == bookUrl) {
-                    adapter.cacheFileNames.add(BookHelp.formatChapterName(chapter))
+                    adapter.cacheFileNames.add(chapter.getFileName())
                     adapter.notifyItemChanged(chapter.index, true)
                 }
             }
@@ -132,27 +136,26 @@ class SearchContentActivity :
     @SuppressLint("SetTextI18n")
     fun startContentSearch(newText: String) {
         // 按章节搜索内容
-        if (!newText.isBlank()) {
+        if (newText.isNotBlank()) {
             adapter.clearItems()
             searchResultList.clear()
-            refresh_progress_bar.isAutoLoading = true
+            binding.refreshProgressBar.isAutoLoading = true
             searchResultCounts = 0
             viewModel.lastQuery = newText
             var searchResults = listOf<SearchResult>()
             launch(Dispatchers.Main) {
-                App.db.bookChapterDao().getChapterList(viewModel.bookUrl).map { chapter ->
-                    val job = async(Dispatchers.IO) {
+                App.db.bookChapterDao.getChapterList(viewModel.bookUrl).map { chapter ->
+                    withContext(Dispatchers.IO) {
                         if (isLocalBook
-                            || adapter.cacheFileNames.contains(BookHelp.formatChapterName(chapter))
+                            || adapter.cacheFileNames.contains(chapter.getFileName())
                         ) {
                             searchResults = searchChapter(newText, chapter)
                         }
                     }
-                    job.await()
                     if (searchResults.isNotEmpty()) {
                         searchResultList.addAll(searchResults)
-                        refresh_progress_bar.isAutoLoading = false
-                        tv_current_search_info.text = "搜索结果：$searchResultCounts"
+                        binding.refreshProgressBar.isAutoLoading = false
+                        binding.tvCurrentSearchInfo.text = "搜索结果：$searchResultCounts"
                         adapter.addItems(searchResults)
                         searchResults = listOf()
                     }
@@ -164,26 +167,27 @@ class SearchContentActivity :
     private suspend fun searchChapter(query: String, chapter: BookChapter?): List<SearchResult> {
         val searchResults: MutableList<SearchResult> = mutableListOf()
         var positions: List<Int>
-        var replaceContents: List<String>? = null
+        var replaceContents: List<String>?
         var totalContents: String
         if (chapter != null) {
             viewModel.book?.let { book ->
                 val bookContent = BookHelp.getContent(book, chapter)
                 if (bookContent != null) {
                     //搜索替换后的正文
-                    val job = async(Dispatchers.IO) {
+                    withContext(Dispatchers.IO) {
                         chapter.title = when (AppConfig.chineseConverterType) {
                             1 -> HanLP.convertToSimplifiedChinese(chapter.title)
                             2 -> HanLP.convertToTraditionalChinese(chapter.title)
                             else -> chapter.title
                         }
-                        replaceContents = BookHelp.disposeContent(book, chapter.title, bookContent)
+                        replaceContents =
+                            viewModel.contentProcessor!!.getContent(
+                                book,
+                                chapter.title,
+                                bookContent
+                            )
                     }
-                    job.await()
-                    while (replaceContents == null) {
-                        delay(100L)
-                    }
-                    totalContents = replaceContents!!.joinToString("")
+                    totalContents = replaceContents?.joinToString("") ?: bookContent
                     positions = searchPosition(totalContents, query)
                     var count = 1
                     positions.map {
@@ -241,7 +245,6 @@ class SearchContentActivity :
         get() = viewModel.book?.isLocalBook() == true
 
     override fun openSearchResult(searchResult: SearchResult) {
-
         val searchData = Intent()
         searchData.putExtra("index", searchResult.chapterIndex)
         searchData.putExtra("contentPosition", searchResult.contentPosition)

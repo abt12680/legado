@@ -5,19 +5,22 @@ import android.graphics.drawable.GradientDrawable
 import android.os.Build
 import android.view.MotionEvent
 import io.legado.app.help.ReadBookConfig
-import io.legado.app.ui.book.read.page.PageView
+import io.legado.app.ui.book.read.page.ReadView
+import io.legado.app.ui.book.read.page.entities.PageDirection
 import kotlin.math.*
 
 @Suppress("DEPRECATION")
-class SimulationPageDelegate(pageView: PageView) : HorizontalPageDelegate(pageView) {
+class SimulationPageDelegate(readView: ReadView) : HorizontalPageDelegate(readView) {
     //不让x,y为0,否则在点计算时会有问题
     private var mTouchX = 0.1f
     private var mTouchY = 0.1f
+
     // 拖拽点对应的页脚
     private var mCornerX = 1
     private var mCornerY = 1
     private val mPath0: Path = Path()
     private val mPath1: Path = Path()
+
     // 贝塞尔曲线起始点
     private val mBezierStart1 = PointF()
     // 贝塞尔曲线控制点
@@ -123,31 +126,31 @@ class SimulationPageDelegate(pageView: PageView) : HorizontalPageDelegate(pageVi
             }
             MotionEvent.ACTION_MOVE -> {
                 if ((startY > viewHeight / 3 && startY < viewHeight * 2 / 3)
-                    || mDirection == Direction.PREV
+                    || mDirection == PageDirection.PREV
                 ) {
-                    pageView.touchY = viewHeight.toFloat()
+                    readView.touchY = viewHeight.toFloat()
                 }
 
                 if (startY > viewHeight / 3 && startY < viewHeight / 2
-                    && mDirection == Direction.NEXT
+                    && mDirection == PageDirection.NEXT
                 ) {
-                    pageView.touchY = 1f
+                    readView.touchY = 1f
                 }
             }
         }
     }
 
-    override fun setDirection(direction: Direction) {
+    override fun setDirection(direction: PageDirection) {
         super.setDirection(direction)
         when (direction) {
-            Direction.PREV ->
+            PageDirection.PREV ->
                 //上一页滑动不出现对角
                 if (startX > viewWidth / 2) {
                     calcCornerXY(startX, viewHeight.toFloat())
                 } else {
                     calcCornerXY(viewWidth - startX, viewHeight.toFloat())
                 }
-            Direction.NEXT ->
+            PageDirection.NEXT ->
                 if (viewWidth / 2 > startX) {
                     calcCornerXY(viewWidth - startX, startY)
                 }
@@ -160,12 +163,12 @@ class SimulationPageDelegate(pageView: PageView) : HorizontalPageDelegate(pageVi
         val dy: Float
         // dy 垂直方向滑动的距离，负值会使滚动向上滚动
         if (isCancel) {
-            dx = if (mCornerX > 0 && mDirection == Direction.NEXT) {
+            dx = if (mCornerX > 0 && mDirection == PageDirection.NEXT) {
                 (viewWidth - touchX)
             } else {
                 -touchX
             }
-            if (mDirection != Direction.NEXT) {
+            if (mDirection != PageDirection.NEXT) {
                 dx = -(viewWidth + touchX)
             }
             dy = if (mCornerY > 0) {
@@ -174,7 +177,7 @@ class SimulationPageDelegate(pageView: PageView) : HorizontalPageDelegate(pageVi
                 -touchY // 防止mTouchY最终变为0
             }
         } else {
-            dx = if (mCornerX > 0 && mDirection == Direction.NEXT) {
+            dx = if (mCornerX > 0 && mDirection == PageDirection.NEXT) {
                 -(viewWidth + touchX)
             } else {
                 (viewWidth - touchX + viewWidth)
@@ -190,21 +193,21 @@ class SimulationPageDelegate(pageView: PageView) : HorizontalPageDelegate(pageVi
 
     override fun onAnimStop() {
         if (!isCancel) {
-            pageView.fillPage(mDirection)
+            readView.fillPage(mDirection)
         }
     }
 
     override fun onDraw(canvas: Canvas) {
         if (!isRunning) return
         when (mDirection) {
-            Direction.NEXT -> {
+            PageDirection.NEXT -> {
                 calcPoints()
                 drawCurrentPageArea(canvas, curBitmap)
                 drawNextPageAreaAndShadow(canvas, nextBitmap)
                 drawCurrentPageShadow(canvas)
                 drawCurrentBackArea(canvas, curBitmap)
             }
-            Direction.PREV -> {
+            PageDirection.PREV -> {
                 calcPoints()
                 drawCurrentPageArea(canvas, prevBitmap)
                 drawNextPageAreaAndShadow(canvas, curBitmap)

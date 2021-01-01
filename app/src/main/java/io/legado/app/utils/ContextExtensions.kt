@@ -53,9 +53,6 @@ fun Context.putPrefLong(key: String, value: Long) =
 fun Context.getPrefString(key: String, defValue: String? = null) =
     defaultSharedPreferences.getString(key, defValue)
 
-fun Context.getPrefString(@StringRes keyId: Int, defValue: String? = null) =
-    defaultSharedPreferences.getString(getString(keyId), defValue)
-
 fun Context.putPrefString(key: String, value: String?) =
     defaultSharedPreferences.edit { putString(key, value) }
 
@@ -126,7 +123,7 @@ fun Context.shareWithQr(title: String, text: String) {
                 file
             )
             val intent = Intent(Intent.ACTION_SEND)
-            intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             intent.putExtra(Intent.EXTRA_STREAM, contentUri)
             intent.type = "image/png"
             startActivity(Intent.createChooser(intent, title))
@@ -160,6 +157,7 @@ fun Context.sendMail(mail: String) {
     try {
         val intent = Intent(Intent.ACTION_SENDTO)
         intent.data = Uri.parse("mailto:$mail")
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         startActivity(intent)
     } catch (e: Exception) {
         toast(e.localizedMessage ?: "Error")
@@ -197,6 +195,7 @@ fun Context.openUrl(url: String) {
 fun Context.openUrl(uri: Uri) {
     val intent = Intent(Intent.ACTION_VIEW)
     intent.data = uri
+    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
     if (intent.resolveActivity(packageManager) != null) {
         try {
             startActivity(intent)

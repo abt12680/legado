@@ -10,28 +10,30 @@ import android.view.View
 import cn.bingoogolapple.qrcode.core.QRCodeView
 import io.legado.app.R
 import io.legado.app.base.BaseActivity
+import io.legado.app.databinding.ActivityQrcodeCaptureBinding
 import io.legado.app.help.permission.Permissions
 import io.legado.app.help.permission.PermissionsCompat
 import io.legado.app.utils.readBytes
-import kotlinx.android.synthetic.main.activity_qrcode_capture.*
-import kotlinx.android.synthetic.main.view_title_bar.*
 import org.jetbrains.anko.toast
 
-class QrCodeActivity : BaseActivity(R.layout.activity_qrcode_capture), QRCodeView.Delegate {
+class QrCodeActivity : BaseActivity<ActivityQrcodeCaptureBinding>(), QRCodeView.Delegate {
 
     private val requestQrImage = 202
     private var flashlightIsOpen: Boolean = false
 
+    override fun getViewBinding(): ActivityQrcodeCaptureBinding {
+        return ActivityQrcodeCaptureBinding.inflate(layoutInflater)
+    }
+
     override fun onActivityCreated(savedInstanceState: Bundle?) {
-        setSupportActionBar(toolbar)
-        zxingview.setDelegate(this)
-        fab_flashlight.setOnClickListener {
+        binding.zXingView.setDelegate(this)
+        binding.fabFlashlight.setOnClickListener {
             if (flashlightIsOpen) {
                 flashlightIsOpen = false
-                zxingview.closeFlashlight()
+                binding.zXingView.closeFlashlight()
             } else {
                 flashlightIsOpen = true
-                zxingview.openFlashlight()
+                binding.zXingView.openFlashlight()
             }
         }
     }
@@ -63,18 +65,21 @@ class QrCodeActivity : BaseActivity(R.layout.activity_qrcode_capture), QRCodeVie
             .addPermissions(*Permissions.Group.CAMERA)
             .rationale(R.string.qr_per)
             .onGranted {
-                zxingview.visibility = View.VISIBLE
-                zxingview.startSpotAndShowRect() // 显示扫描框，并开始识别
+                binding.zXingView.visibility = View.VISIBLE
+                //TODO 显示扫描框，并开始识别
+                binding.zXingView.startSpotAndShowRect()
             }.request()
     }
 
     override fun onStop() {
-        zxingview.stopCamera() // 关闭摄像头预览，并且隐藏扫描框
+        //TODO 关闭摄像头预览，并且隐藏扫描框
+        binding.zXingView.stopCamera()
         super.onStop()
     }
 
     override fun onDestroy() {
-        zxingview.onDestroy() // 销毁二维码扫描控件
+        //TODO 销毁二维码扫描控件
+        binding.zXingView.onDestroy()
         super.onDestroy()
     }
 
@@ -96,13 +101,14 @@ class QrCodeActivity : BaseActivity(R.layout.activity_qrcode_capture), QRCodeVie
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         data?.data?.let {
-            zxingview.startSpotAndShowRect() // 显示扫描框，并开始识别
+            //TODO 显示扫描框，并开始识别
+            binding.zXingView.startSpotAndShowRect()
 
             if (resultCode == Activity.RESULT_OK && requestCode == requestQrImage) {
                 // 本来就用到 QRCodeView 时可直接调 QRCodeView 的方法，走通用的回调
                 it.readBytes(this)?.let { bytes ->
                     val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
-                    zxingview.decodeQRCode(bitmap)
+                    binding.zXingView.decodeQRCode(bitmap)
                 }
             }
         }

@@ -7,11 +7,12 @@ import androidx.lifecycle.MutableLiveData
 import io.legado.app.R
 import io.legado.app.base.BaseViewModel
 import io.legado.app.data.entities.ReplaceRule
-import io.legado.app.help.http.HttpHelper
 import io.legado.app.help.storage.OldReplace
 import io.legado.app.utils.isAbsUrl
-import io.legado.app.utils.isContentPath
+import io.legado.app.utils.isContentScheme
 import io.legado.app.utils.readText
+import rxhttp.wrapper.param.RxHttp
+import rxhttp.wrapper.param.toText
 import java.io.File
 
 class ImportReplaceRuleViewModel(app: Application) : BaseViewModel(app) {
@@ -22,7 +23,7 @@ class ImportReplaceRuleViewModel(app: Application) : BaseViewModel(app) {
 
     fun importFromFilePath(path: String) {
         execute {
-            val content = if (path.isContentPath()) {
+            val content = if (path.isContentScheme()) {
                 //在前面被解码了，如果不进行编码，中文会无法识别
                 val newPath = Uri.encode(path, ":/.")
                 DocumentFile.fromSingleUri(context, Uri.parse(newPath))?.readText(context)
@@ -48,7 +49,7 @@ class ImportReplaceRuleViewModel(app: Application) : BaseViewModel(app) {
     fun import(text: String) {
         execute {
             if (text.isAbsUrl()) {
-                HttpHelper.simpleGet(text)?.let {
+                RxHttp.get(text).toText("utf-8").await().let {
                     val rules = OldReplace.jsonToReplaceRules(it)
                     allRules.addAll(rules)
                 }

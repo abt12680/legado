@@ -153,6 +153,7 @@
     <string name="set_timer">Timer</string>
     <string name="read_aloud_pause">Speak Paused</string>
     <string name="read_aloud_timer">Speaking(%d min left)</string>
+    <string name="playing_timer">Playing(%d min left)</string>
     <string name="ps_hide_navigation_bar">Hide virtual buttons when reading</string>
     <string name="pt_hide_navigation_bar">Hide navigation bar</string>
     <string name="re_navigation_bar_color">Navigation bar color</string>
@@ -200,8 +201,8 @@
     <string name="book">Book</string>
     <string name="volume_key_page">Volume keys to turn page</string>
     <string name="click_turn_page">Tap screen to turn page</string>
-    <string name="click_all_next_page">Tap screen always to next page</string>
     <string name="page_anim">Flip animation</string>
+    <string name="book_page_anim">Flip animation (book)</string>
     <string name="keep_light">Keep screen awake</string>
     <string name="back">Back</string>
     <string name="menu">Menu</string>
@@ -351,7 +352,7 @@
     <string name="sort">Sort</string>
     <string name="sort_auto">Sort automatically</string>
     <string name="sort_manual">Sort manually</string>
-    <string name="sort_pin_yin">Sort phonetically</string>
+    <string name="sort_name">Sort name</string>
     <string name="go_to_top">Scroll to the top</string>
     <string name="go_to_bottom">Scroll to the bottom</string>
     <string name="read_y">Read: %s</string>
@@ -364,8 +365,8 @@
     <string name="finish_book">Finished books</string>
     <string name="local_book">Local books</string>
     <string name="status_bar_immersion">The status bar color becomes transparent</string>
-    <string name="navigation_bar_color_change">Discolored navigation bar</string>
-    <string name="navigation_bar_color_change_s">The navigation bar changes color following the dark mode</string>
+    <string name="imm_navigation_bar">immersion navigation bar</string>
+    <string name="imm_navigation_bar_s">The navigation bar becomes transparent</string>
     <string name="add_to_shelf">Add to Bookshelf</string>
     <string name="continue_read">Continue reading</string>
     <string name="cover_path">Cover path</string>
@@ -411,6 +412,7 @@
     <string name="book_url_pattern">书籍URL正则(bookUrlPattern)</string>
     <string name="rule_book_info_init">预处理规则(bookInfoInit)</string>
     <string name="rule_toc_url">目录URL规则(tocUrl)</string>
+    <string name="rule_can_re_name">允许修改书名作者(canReName)</string>
     <string name="rule_next_toc_url">目录下一页规则(nextTocUrl)</string>
     <string name="rule_chapter_list">目录列表规则(chapterList)</string>
     <string name="rule_chapter_name">章节名称规则(ChapterName)</string>
@@ -419,7 +421,7 @@
     <string name="rule_update_time">更新时间(ChapterInfo)</string>
     <string name="rule_book_content">正文规则(content)</string>
     <string name="rule_next_content">正文下一页URL规则(nextContentUrl)</string>
-    <string name="rule_web_js">webJs</string>
+    <string name="rule_web_js">WebViewJs(webJs)</string>
     <string name="rule_source_regex">资源正则(sourceRegex)</string>
     <string name="rule_replace_regex">替换规则(replaceRegex)</string>
     <string name="rule_image_style">图片样式(imageStyle)</string>
@@ -483,6 +485,7 @@
     <string name="no">No</string>
     <string name="sure">OK</string>
     <string name="sure_del">Are you sure to delete it?</string>
+    <string name="sure_del_any">Are you sure to delete %s?</string>
     <string name="sure_del_all_book">Are you sure to delete all books？</string>
     <string name="sure_del_download_book">Do you want to delete the downloaded book chapters at the same time?</string>
     <string name="qr_per">Scan QR code requires Camera permissions</string>
@@ -493,7 +496,7 @@
     <string name="no_book_name">No bookName</string>
     <string name="input_replace_url">Input replacement rule URL</string>
     <string name="get_book_list_success">Search list obtained successfully%d</string>
-    <string name="non_null_source_name_url">Source name and URL cannot be empty</string>
+    <string name="non_null_name_url">name and URL cannot be empty</string>
     <string name="gallery">Gallery</string>
     <string name="get_ali_pay_hb">get AliPay red envelopes</string>
     <string name="non_update_url">No update address</string>
@@ -602,8 +605,6 @@
     <string name="change_cover_source">Change origin</string>
     <string name="select_local_image">Local image</string>
     <string name="book_type">Type:</string>
-    <string name="book_type_text">Text</string>
-    <string name="book_type_audio">Audio</string>
     <string name="to_backstage">Background</string>
     <string name="importing">Importing</string>
     <string name="exporting">Exporting</string>
@@ -628,7 +629,8 @@
     <string name="service_start">Starting service\nChecking notification bar for details</string>
     <string name="default_path">Default path</string>
     <string name="sys_folder_picker">System folder picker</string>
-    <string name="app_folder_picker">App folder picker\n(Android 10+ May not be available due to permission restrictions)</string>
+    <string name="app_folder_picker">App folder picker</string>
+    <string name="app_file_picker">App file picker</string>
     <string name="a10_permission_toast">Android 10+ unable to read and write file due to permission restrictions</string>
     <string name="add_to_text_context_menu_s">Long tap to display Legado·Search in the operation menu</string>
     <string name="add_to_text_context_menu_t">Text operation display Search</string>
@@ -690,8 +692,6 @@
     <string name="click_to_apply">Tap to join</string>
     <string name="middle">Middle</string>
     <string name="information">Information</string>
-    <string name="hideHeader">Hide header</string>
-    <string name="hideFooter">Hide footer</string>
     <string name="switchLayout">Switch Layout</string>
     <string name="text_font_weight_converter">Text font weight switching</string>
 
@@ -781,5 +781,28 @@
     <string name="auto_clear_expired_summary">超过一天的搜索数据</string>
     <string name="re_segment">重新分段</string>
     <string name="style_name">样式名称:</string>
+    <string name="empty_msg_import_book">点击右上角文件夹图标,选择文件夹</string>
+    <string name="scan_folder">智能扫描</string>
+    <string name="copy_url">拷贝URL</string>
+    <string name="no_book">没有书籍</string>
+    <string name="keep_original_name">保留原名</string>
+    <string name="click_regional_config">点击区域设置</string>
+    <string name="colse">关闭</string>
+    <string name="next_page">下一页</string>
+    <string name="prev_page">上一页</string>
+    <string name="non_action">无操作</string>
+    <string name="body_title">正文标题</string>
+    <string name="show_hide">显示/隐藏</string>
+    <string name="header_footer">footer <![CDATA[&]]> header</string>
+    <string name="rule_subscription">规则订阅</string>
+    <string name="rule_sub_empty_msg">添加大佬们提供的规则导入地址\n添加后点击可导入规则</string>
+    <string name="get_book_progress">拉取云端进度</string>
+    <string name="current_progress_exceeds_cloud">当前进度超过云端进度,是否同步?</string>
+    <string name="sync_book_progress_t">同步阅读进度</string>
+    <string name="sync_book_progress_s">进入退出阅读界面时同步阅读进度</string>
+    <string name="create_bookmark_error">创建书签失败</string>
+    <string name="single_url">单URL</string>
+    <string name="export_bookshelf">导出书单</string>
+    <string name="import_bookshelf">导入书单</string>
 
 </resources>

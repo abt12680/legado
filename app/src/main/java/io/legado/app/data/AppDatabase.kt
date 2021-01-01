@@ -17,27 +17,30 @@ import java.util.*
     entities = [Book::class, BookGroup::class, BookSource::class, BookChapter::class,
         ReplaceRule::class, SearchBook::class, SearchKeyword::class, Cookie::class,
         RssSource::class, Bookmark::class, RssArticle::class, RssReadRecord::class,
-        RssStar::class, TxtTocRule::class, ReadRecord::class, HttpTTS::class],
-    version = 22,
+        RssStar::class, TxtTocRule::class, ReadRecord::class, HttpTTS::class, Cache::class,
+        RuleSub::class],
+    version = 28,
     exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
 
-    abstract fun bookDao(): BookDao
-    abstract fun bookGroupDao(): BookGroupDao
-    abstract fun bookSourceDao(): BookSourceDao
-    abstract fun bookChapterDao(): BookChapterDao
-    abstract fun replaceRuleDao(): ReplaceRuleDao
-    abstract fun searchBookDao(): SearchBookDao
-    abstract fun searchKeywordDao(): SearchKeywordDao
-    abstract fun rssSourceDao(): RssSourceDao
-    abstract fun bookmarkDao(): BookmarkDao
-    abstract fun rssArticleDao(): RssArticleDao
-    abstract fun rssStarDao(): RssStarDao
-    abstract fun cookieDao(): CookieDao
-    abstract fun txtTocRule(): TxtTocRuleDao
-    abstract fun readRecordDao(): ReadRecordDao
-    abstract fun httpTTSDao(): HttpTTSDao
+    abstract val bookDao: BookDao
+    abstract val bookGroupDao: BookGroupDao
+    abstract val bookSourceDao: BookSourceDao
+    abstract val bookChapterDao: BookChapterDao
+    abstract val replaceRuleDao: ReplaceRuleDao
+    abstract val searchBookDao: SearchBookDao
+    abstract val searchKeywordDao: SearchKeywordDao
+    abstract val rssSourceDao: RssSourceDao
+    abstract val bookmarkDao: BookmarkDao
+    abstract val rssArticleDao: RssArticleDao
+    abstract val rssStarDao: RssStarDao
+    abstract val cookieDao: CookieDao
+    abstract val txtTocRule: TxtTocRuleDao
+    abstract val readRecordDao: ReadRecordDao
+    abstract val httpTTSDao: HttpTTSDao
+    abstract val cacheDao: CacheDao
+    abstract val ruleSubDao: RuleSubDao
 
     companion object {
 
@@ -47,17 +50,11 @@ abstract class AppDatabase : RoomDatabase() {
             Room.databaseBuilder(context, AppDatabase::class.java, DATABASE_NAME)
                 .fallbackToDestructiveMigration()
                 .addMigrations(
-                    migration_10_11,
-                    migration_11_12,
-                    migration_12_13,
-                    migration_13_14,
-                    migration_14_15,
-                    migration_15_17,
-                    migration_17_18,
-                    migration_18_19,
-                    migration_19_20,
-                    migration_20_21,
-                    migration_21_22
+                    migration_10_11, migration_11_12, migration_12_13, migration_13_14,
+                    migration_14_15, migration_15_17, migration_17_18, migration_18_19,
+                    migration_19_20, migration_20_21, migration_21_22, migration_22_23,
+                    migration_23_24, migration_24_25, migration_25_26, migration_26_27,
+                    migration_27_28
                 )
                 .allowMainThreadQueries()
                 .addCallback(dbCallback)
@@ -192,6 +189,66 @@ abstract class AppDatabase : RoomDatabase() {
                 database.execSQL("DROP TABLE books")
                 database.execSQL("ALTER TABLE books_new RENAME TO books")
                 database.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_books_name_author` ON `books` (`name`, `author`) ")
+            }
+        }
+
+        private val migration_22_23 = object : Migration(22, 23) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE chapters ADD baseUrl TEXT NOT NULL DEFAULT ''")
+            }
+        }
+
+        private val migration_23_24 = object : Migration(23, 24) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("CREATE TABLE IF NOT EXISTS `caches` (`key` TEXT NOT NULL, `value` TEXT, `deadline` INTEGER NOT NULL, PRIMARY KEY(`key`))")
+                database.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_caches_key` ON `caches` (`key`)")
+            }
+        }
+
+        private val migration_24_25 = object : Migration(24, 25) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL(
+                    """CREATE TABLE IF NOT EXISTS `sourceSubs` 
+                    (`id` INTEGER NOT NULL, `name` TEXT NOT NULL, `url` TEXT NOT NULL, `type` INTEGER NOT NULL, `customOrder` INTEGER NOT NULL, 
+                    PRIMARY KEY(`id`))"""
+                )
+            }
+        }
+
+        private val migration_25_26 = object : Migration(25, 26) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL(
+                    """CREATE TABLE IF NOT EXISTS `ruleSubs` (`id` INTEGER NOT NULL, `name` TEXT NOT NULL, `url` TEXT NOT NULL, `type` INTEGER NOT NULL, 
+                    `customOrder` INTEGER NOT NULL, `autoUpdate` INTEGER NOT NULL, `update` INTEGER NOT NULL, PRIMARY KEY(`id`))"""
+                )
+                database.execSQL(" insert into `ruleSubs` select *, 0, 0 from `sourceSubs` ")
+                database.execSQL("DROP TABLE `sourceSubs`")
+            }
+        }
+
+        private val migration_26_27 = object : Migration(26, 27) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL(" ALTER TABLE rssSources ADD singleUrl INTEGER NOT NULL DEFAULT 0 ")
+                database.execSQL(
+                    """CREATE TABLE IF NOT EXISTS `bookmarks1` (`time` INTEGER NOT NULL, `bookUrl` TEXT NOT NULL, `bookName` TEXT NOT NULL, 
+                        `bookAuthor` TEXT NOT NULL, `chapterIndex` INTEGER NOT NULL, `chapterPos` INTEGER NOT NULL, `chapterName` TEXT NOT NULL, 
+                        `bookText` TEXT NOT NULL, `content` TEXT NOT NULL, PRIMARY KEY(`time`))"""
+                )
+                database.execSQL(
+                    """insert into `bookmarks1` 
+                        select `time`, `bookUrl`, `bookName`, `bookAuthor`, `chapterIndex`, `pageIndex`, `chapterName`, '', `content` 
+                        from bookmarks"""
+                )
+                database.execSQL(" DROP TABLE `bookmarks` ")
+                database.execSQL(" ALTER TABLE bookmarks1 RENAME TO bookmarks ")
+                database.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_bookmarks_time` ON `bookmarks` (`time`)")
+            }
+        }
+
+        private val migration_27_28 = object : Migration(27, 28) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE rssArticles ADD variable TEXT")
+                database.execSQL("ALTER TABLE rssStars ADD variable TEXT")
             }
         }
     }

@@ -2,27 +2,93 @@ package io.legado.app.ui.book.arrange
 
 import android.content.Context
 import android.view.View
+import android.view.ViewGroup
 import androidx.core.os.bundleOf
 import androidx.recyclerview.widget.RecyclerView
-import io.legado.app.R
 import io.legado.app.base.adapter.ItemViewHolder
-import io.legado.app.base.adapter.SimpleRecyclerAdapter
+import io.legado.app.base.adapter.RecyclerAdapter
 import io.legado.app.data.entities.Book
 import io.legado.app.data.entities.BookGroup
+import io.legado.app.databinding.ItemArrangeBookBinding
 import io.legado.app.lib.theme.backgroundColor
 import io.legado.app.ui.widget.recycler.DragSelectTouchHelper
 import io.legado.app.ui.widget.recycler.ItemTouchCallback
-import kotlinx.android.synthetic.main.item_arrange_book.view.*
 import org.jetbrains.anko.backgroundColor
 import org.jetbrains.anko.sdk27.listeners.onClick
 import java.util.*
 
 class ArrangeBookAdapter(context: Context, val callBack: CallBack) :
-    SimpleRecyclerAdapter<Book>(context, R.layout.item_arrange_book),
+    RecyclerAdapter<Book, ItemArrangeBookBinding>(context),
+
     ItemTouchCallback.Callback {
     val groupRequestCode = 12
     private val selectedBooks: HashSet<Book> = hashSetOf()
     var actionItem: Book? = null
+
+    override fun getViewBinding(parent: ViewGroup): ItemArrangeBookBinding {
+        return ItemArrangeBookBinding.inflate(inflater, parent, false)
+    }
+
+    override fun onCurrentListChanged() {
+        callBack.upSelectCount()
+    }
+
+    override fun convert(
+        holder: ItemViewHolder,
+        binding: ItemArrangeBookBinding,
+        item: Book,
+        payloads: MutableList<Any>
+    ) {
+        binding.apply {
+            root.backgroundColor = context.backgroundColor
+            tvName.text = item.name
+            tvAuthor.text = item.author
+            tvAuthor.visibility = if (item.author.isEmpty()) View.GONE else View.VISIBLE
+            tvGroupS.text = getGroupName(item.group)
+            checkbox.isChecked = selectedBooks.contains(item)
+        }
+    }
+
+    override fun registerListener(holder: ItemViewHolder, binding: ItemArrangeBookBinding) {
+        binding.apply {
+            checkbox.setOnCheckedChangeListener { buttonView, isChecked ->
+                if (buttonView.isPressed) {
+                    getItem(holder.layoutPosition)?.let {
+                        if (buttonView.isPressed) {
+                            if (isChecked) {
+                                selectedBooks.add(it)
+                            } else {
+                                selectedBooks.remove(it)
+                            }
+                            callBack.upSelectCount()
+                        }
+                    }
+                }
+            }
+            root.onClick {
+                getItem(holder.layoutPosition)?.let {
+                    checkbox.isChecked = !checkbox.isChecked
+                    if (checkbox.isChecked) {
+                        selectedBooks.add(it)
+                    } else {
+                        selectedBooks.remove(it)
+                    }
+                    callBack.upSelectCount()
+                }
+            }
+            tvDelete.onClick {
+                getItem(holder.layoutPosition)?.let {
+                    callBack.deleteBook(it)
+                }
+            }
+            tvGroup.onClick {
+                getItem(holder.layoutPosition)?.let {
+                    actionItem = it
+                    callBack.selectGroup(groupRequestCode, it.group)
+                }
+            }
+        }
+    }
 
     fun selectAll(selectAll: Boolean) {
         if (selectAll) {
@@ -58,57 +124,6 @@ class ArrangeBookAdapter(context: Context, val callBack: CallBack) :
         return books.toTypedArray()
     }
 
-    override fun convert(holder: ItemViewHolder, item: Book, payloads: MutableList<Any>) {
-        with(holder.itemView) {
-            backgroundColor = context.backgroundColor
-            tv_name.text = item.name
-            tv_author.text = item.author
-            tv_author.visibility = if (item.author.isEmpty()) View.GONE else View.VISIBLE
-            tv_group_s.text = getGroupName(item.group)
-            checkbox.isChecked = selectedBooks.contains(item)
-        }
-    }
-
-    override fun registerListener(holder: ItemViewHolder) {
-        holder.itemView.apply {
-            checkbox.setOnCheckedChangeListener { buttonView, isChecked ->
-                getItem(holder.layoutPosition)?.let {
-                    if (buttonView.isPressed) {
-                        if (isChecked) {
-                            selectedBooks.add(it)
-                        } else {
-                            selectedBooks.remove(it)
-                        }
-                        callBack.upSelectCount()
-                    }
-
-                }
-            }
-            onClick {
-                getItem(holder.layoutPosition)?.let {
-                    checkbox.isChecked = !checkbox.isChecked
-                    if (checkbox.isChecked) {
-                        selectedBooks.add(it)
-                    } else {
-                        selectedBooks.remove(it)
-                    }
-                    callBack.upSelectCount()
-                }
-            }
-            tv_delete.onClick {
-                getItem(holder.layoutPosition)?.let {
-                    callBack.deleteBook(it)
-                }
-            }
-            tv_group.onClick {
-                getItem(holder.layoutPosition)?.let {
-                    actionItem = it
-                    callBack.selectGroup(groupRequestCode, it.group)
-                }
-            }
-        }
-    }
-
     private fun getGroupList(groupId: Long): List<String> {
         val groupNames = arrayListOf<String>()
         callBack.groupList.forEach {
@@ -129,11 +144,9 @@ class ArrangeBookAdapter(context: Context, val callBack: CallBack) :
 
     private var isMoved = false
 
-    override fun onMove(srcPosition: Int, targetPosition: Int): Boolean {
+    override fun swap(srcPosition: Int, targetPosition: Int): Boolean {
         val srcItem = getItem(srcPosition)
         val targetItem = getItem(targetPosition)
-        Collections.swap(getItems(), srcPosition, targetPosition)
-        notifyItemMoved(srcPosition, targetPosition)
         if (srcItem != null && targetItem != null) {
             if (srcItem.order == targetItem.order) {
                 for ((index, item) in getItems().withIndex()) {
@@ -145,6 +158,7 @@ class ArrangeBookAdapter(context: Context, val callBack: CallBack) :
                 targetItem.order = pos
             }
         }
+        swapItem(srcPosition, targetPosition)
         isMoved = true
         return true
     }
@@ -156,8 +170,8 @@ class ArrangeBookAdapter(context: Context, val callBack: CallBack) :
         isMoved = false
     }
 
-    fun initDragSelectTouchHelperCallback(): DragSelectTouchHelper.Callback {
-        return object : DragSelectTouchHelper.AdvanceCallback<Book>(Mode.ToggleAndReverse) {
+    val dragSelectCallback: DragSelectTouchHelper.Callback =
+        object : DragSelectTouchHelper.AdvanceCallback<Book>(Mode.ToggleAndReverse) {
             override fun currentSelectedId(): MutableSet<Book> {
                 return selectedBooks
             }
@@ -180,7 +194,6 @@ class ArrangeBookAdapter(context: Context, val callBack: CallBack) :
                 return false
             }
         }
-    }
 
     interface CallBack {
         val groupList: List<BookGroup>

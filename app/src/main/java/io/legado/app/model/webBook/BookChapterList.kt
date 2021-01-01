@@ -63,18 +63,18 @@ object BookChapterList {
                                 ruleUrl = nextUrl,
                                 book = book,
                                 headerMapF = bookSource.getHeaderMap()
-                            ).getResponseAwait(bookSource.bookSourceUrl)
+                            ).getStrResponse(bookSource.bookSourceUrl)
                                 .body?.let { nextBody ->
-                                chapterData = analyzeChapterList(
-                                    book, nextUrl, nextBody, tocRule, listRule, bookSource
-                                )
-                                nextUrl = if (chapterData.nextUrl.isNotEmpty()) {
-                                    chapterData.nextUrl[0]
-                                } else ""
-                                chapterData.chapterList?.let {
-                                    chapterList.addAll(it)
+                                    chapterData = analyzeChapterList(
+                                        book, nextUrl, nextBody, tocRule, listRule, bookSource
+                                    )
+                                    nextUrl = if (chapterData.nextUrl.isNotEmpty()) {
+                                        chapterData.nextUrl[0]
+                                    } else ""
+                                    chapterData.chapterList?.let {
+                                        chapterList.addAll(it)
+                                    }
                                 }
-                            }
                         }
                         Debug.log(bookSource.bookSourceUrl, "◇目录总页数:${nextUrlList.size}")
                         block.resume(finish(book, chapterList, reverse))
@@ -132,7 +132,7 @@ object BookChapterList {
                 ruleUrl = chapterData.nextUrl,
                 book = book,
                 headerMapF = bookSource.getHeaderMap()
-            ).getResponseAwait(bookSource.bookSourceUrl).body
+            ).getStrResponse(bookSource.bookSourceUrl).body
                 ?: throw Exception("${chapterData.nextUrl}, 下载失败")
             val nextChapterData = analyzeChapterList(
                 book, chapterData.nextUrl, nextBody, tocRule, listRule, bookSource,
@@ -210,7 +210,7 @@ object BookChapterList {
         log: Boolean = false
     ): ChapterData<List<String>> {
         val analyzeRule = AnalyzeRule(book)
-        analyzeRule.setContent(body, baseUrl)
+        analyzeRule.setContent(body).setBaseUrl(baseUrl)
         val chapterList = arrayListOf<BookChapter>()
         val nextUrlList = arrayListOf<String>()
         val nextTocRule = tocRule.nextTocUrl
@@ -233,7 +233,6 @@ object BookChapterList {
         val elements = analyzeRule.getElements(listRule)
         Debug.log(bookSource.bookSourceUrl, "└列表大小:${elements.size}", log)
         if (elements.isNotEmpty()) {
-            Debug.log(bookSource.bookSourceUrl, "┌获取首章名称", log)
             val nameRule = analyzeRule.splitSourceRule(tocRule.chapterName)
             val urlRule = analyzeRule.splitSourceRule(tocRule.chapterUrl)
             val vipRule = analyzeRule.splitSourceRule(tocRule.isVip)
@@ -241,13 +240,15 @@ object BookChapterList {
             var isVip: String?
             for (item in elements) {
                 analyzeRule.setContent(item)
-                val bookChapter = BookChapter(bookUrl = book.bookUrl)
+                val bookChapter = BookChapter(bookUrl = book.bookUrl, baseUrl = baseUrl)
                 analyzeRule.chapter = bookChapter
                 bookChapter.title = analyzeRule.getString(nameRule)
-                bookChapter.url = analyzeRule.getString(urlRule, true)
+                bookChapter.url = analyzeRule.getString(urlRule)
                 bookChapter.tag = analyzeRule.getString(update)
                 isVip = analyzeRule.getString(vipRule)
-                if (bookChapter.url.isEmpty()) bookChapter.url = baseUrl
+                if (bookChapter.url.isEmpty()) {
+                    bookChapter.url = baseUrl
+                }
                 if (bookChapter.title.isNotEmpty()) {
                     if (isVip.isNotEmpty() && isVip != "null" && isVip != "false" && isVip != "0") {
                         bookChapter.title = "\uD83D\uDD12" + bookChapter.title
@@ -255,6 +256,7 @@ object BookChapterList {
                     chapterList.add(bookChapter)
                 }
             }
+            Debug.log(bookSource.bookSourceUrl, "┌获取首章名称", log)
             Debug.log(bookSource.bookSourceUrl, "└${chapterList[0].title}", log)
             Debug.log(bookSource.bookSourceUrl, "┌获取首章链接", log)
             Debug.log(bookSource.bookSourceUrl, "└${chapterList[0].url}", log)

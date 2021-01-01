@@ -1,16 +1,16 @@
 package io.legado.app.ui.book.source.manage
 
 import android.app.Application
+import android.content.Intent
 import android.text.TextUtils
+import androidx.core.content.FileProvider
 import androidx.documentfile.provider.DocumentFile
 import io.legado.app.App
+import io.legado.app.BuildConfig
 import io.legado.app.base.BaseViewModel
 import io.legado.app.constant.AppPattern
 import io.legado.app.data.entities.BookSource
-import io.legado.app.utils.FileUtils
-import io.legado.app.utils.GSON
-import io.legado.app.utils.splitNotBlank
-import io.legado.app.utils.writeText
+import io.legado.app.utils.*
 import org.jetbrains.anko.longToast
 import java.io.File
 
@@ -18,39 +18,39 @@ class BookSourceViewModel(application: Application) : BaseViewModel(application)
 
     fun topSource(vararg sources: BookSource) {
         execute {
-            val minOrder = App.db.bookSourceDao().minOrder - 1
+            val minOrder = App.db.bookSourceDao.minOrder - 1
             sources.forEachIndexed { index, bookSource ->
                 bookSource.customOrder = minOrder - index
             }
-            App.db.bookSourceDao().update(*sources)
+            App.db.bookSourceDao.update(*sources)
         }
     }
 
     fun bottomSource(vararg sources: BookSource) {
         execute {
-            val maxOrder = App.db.bookSourceDao().maxOrder + 1
+            val maxOrder = App.db.bookSourceDao.maxOrder + 1
             sources.forEachIndexed { index, bookSource ->
                 bookSource.customOrder = maxOrder + index
             }
-            App.db.bookSourceDao().update(*sources)
+            App.db.bookSourceDao.update(*sources)
         }
     }
 
     fun del(bookSource: BookSource) {
-        execute { App.db.bookSourceDao().delete(bookSource) }
+        execute { App.db.bookSourceDao.delete(bookSource) }
     }
 
     fun update(vararg bookSource: BookSource) {
-        execute { App.db.bookSourceDao().update(*bookSource) }
+        execute { App.db.bookSourceDao.update(*bookSource) }
     }
 
     fun upOrder() {
         execute {
-            val sources = App.db.bookSourceDao().all
+            val sources = App.db.bookSourceDao.all
             for ((index: Int, source: BookSource) in sources.withIndex()) {
                 source.customOrder = index + 1
             }
-            App.db.bookSourceDao().update(*sources.toTypedArray())
+            App.db.bookSourceDao.update(*sources.toTypedArray())
         }
     }
 
@@ -60,7 +60,7 @@ class BookSourceViewModel(application: Application) : BaseViewModel(application)
             sources.forEach {
                 list.add(it.copy(enabled = true))
             }
-            App.db.bookSourceDao().update(*list.toTypedArray())
+            App.db.bookSourceDao.update(*list.toTypedArray())
         }
     }
 
@@ -70,7 +70,7 @@ class BookSourceViewModel(application: Application) : BaseViewModel(application)
             sources.forEach {
                 list.add(it.copy(enabled = false))
             }
-            App.db.bookSourceDao().update(*list.toTypedArray())
+            App.db.bookSourceDao.update(*list.toTypedArray())
         }
     }
 
@@ -80,7 +80,7 @@ class BookSourceViewModel(application: Application) : BaseViewModel(application)
             sources.forEach {
                 list.add(it.copy(enabledExplore = true))
             }
-            App.db.bookSourceDao().update(*list.toTypedArray())
+            App.db.bookSourceDao.update(*list.toTypedArray())
         }
     }
 
@@ -90,7 +90,7 @@ class BookSourceViewModel(application: Application) : BaseViewModel(application)
             sources.forEach {
                 list.add(it.copy(enabledExplore = false))
             }
-            App.db.bookSourceDao().update(*list.toTypedArray())
+            App.db.bookSourceDao.update(*list.toTypedArray())
         }
     }
 
@@ -109,7 +109,7 @@ class BookSourceViewModel(application: Application) : BaseViewModel(application)
                 val newGroup = ArrayList(lh).joinToString(separator = ",")
                 list.add(source.copy(bookSourceGroup = newGroup))
             }
-            App.db.bookSourceDao().update(*list.toTypedArray())
+            App.db.bookSourceDao.update(*list.toTypedArray())
         }
     }
 
@@ -128,13 +128,13 @@ class BookSourceViewModel(application: Application) : BaseViewModel(application)
                 val newGroup = ArrayList(lh).joinToString(separator = ",")
                 list.add(source.copy(bookSourceGroup = newGroup))
             }
-            App.db.bookSourceDao().update(*list.toTypedArray())
+            App.db.bookSourceDao.update(*list.toTypedArray())
         }
     }
 
     fun delSelection(sources: List<BookSource>) {
         execute {
-            App.db.bookSourceDao().delete(*sources.toTypedArray())
+            App.db.bookSourceDao.delete(*sources.toTypedArray())
         }
     }
 
@@ -163,19 +163,41 @@ class BookSourceViewModel(application: Application) : BaseViewModel(application)
         }
     }
 
+    fun shareSelection(sources: List<BookSource>, success: ((intent: Intent) -> Unit)) {
+        execute {
+            val intent = Intent(Intent.ACTION_SEND)
+            val file = FileUtils.createFileWithReplace("${context.filesDir}/shareBookSource.json")
+            file.writeText(GSON.toJson(sources))
+            val fileUri = FileProvider.getUriForFile(
+                context,
+                BuildConfig.APPLICATION_ID + ".fileProvider",
+                file
+            )
+            intent.type = "text/*"
+            intent.putExtra(Intent.EXTRA_STREAM, fileUri)
+            intent.flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            intent
+        }.onSuccess {
+            success.invoke(it)
+        }.onError {
+            toast(it.msg)
+        }
+    }
+
     fun addGroup(group: String) {
         execute {
-            val sources = App.db.bookSourceDao().noGroup
+            val sources = App.db.bookSourceDao.noGroup
             sources.map { source ->
                 source.bookSourceGroup = group
             }
-            App.db.bookSourceDao().update(*sources.toTypedArray())
+            App.db.bookSourceDao.update(*sources.toTypedArray())
         }
     }
 
     fun upGroup(oldGroup: String, newGroup: String?) {
         execute {
-            val sources = App.db.bookSourceDao().getByGroup(oldGroup)
+            val sources = App.db.bookSourceDao.getByGroup(oldGroup)
             sources.map { source ->
                 source.bookSourceGroup?.splitNotBlank(",")?.toHashSet()?.let {
                     it.remove(oldGroup)
@@ -184,18 +206,18 @@ class BookSourceViewModel(application: Application) : BaseViewModel(application)
                     source.bookSourceGroup = TextUtils.join(",", it)
                 }
             }
-            App.db.bookSourceDao().update(*sources.toTypedArray())
+            App.db.bookSourceDao.update(*sources.toTypedArray())
         }
     }
 
     fun delGroup(group: String) {
         execute {
             execute {
-                val sources = App.db.bookSourceDao().getByGroup(group)
+                val sources = App.db.bookSourceDao.getByGroup(group)
                 sources.map { source ->
                     source.removeGroup(group)
                 }
-                App.db.bookSourceDao().update(*sources.toTypedArray())
+                App.db.bookSourceDao.update(*sources.toTypedArray())
             }
         }
     }

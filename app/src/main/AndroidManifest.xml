@@ -171,6 +171,10 @@
         <activity
             android:name=".ui.qrcode.QrCodeActivity"
             android:launchMode="singleTask" />
+        <!-- 规则订阅 -->
+        <activity
+            android:name=".ui.rss.subscription.RuleSubActivity"
+            android:launchMode="singleTask" />
         <!-- 书源编辑 -->
         <activity
             android:name=".ui.book.source.edit.BookSourceEditActivity"
@@ -196,7 +200,7 @@
         <!-- 搜索界面 -->
         <activity
             android:name=".ui.book.search.SearchActivity"
-            android:launchMode="singleTask" />
+            android:launchMode="standard" />
         <!-- 关于界面 -->
         <activity
             android:name=".ui.about.AboutActivity"

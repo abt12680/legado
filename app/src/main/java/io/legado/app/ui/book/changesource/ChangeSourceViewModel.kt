@@ -17,13 +17,13 @@ import io.legado.app.help.AppConfig
 import io.legado.app.help.coroutine.CompositeCoroutine
 import io.legado.app.model.webBook.WebBook
 import io.legado.app.utils.getPrefBoolean
+import io.legado.app.utils.getPrefString
 import kotlinx.coroutines.Dispatchers.IO
 import kotlinx.coroutines.ExecutorCoroutineDispatcher
 import kotlinx.coroutines.asCoroutineDispatcher
 import org.jetbrains.anko.debug
 import java.util.concurrent.CopyOnWriteArraySet
 import java.util.concurrent.Executors
-import kotlin.math.min
 
 class ChangeSourceViewModel(application: Application) : BaseViewModel(application) {
     private val threadCount = AppConfig.threadCount
@@ -39,6 +39,8 @@ class ChangeSourceViewModel(application: Application) : BaseViewModel(applicatio
     private val searchBooks = CopyOnWriteArraySet<SearchBook>()
     private var postTime = 0L
     private val sendRunnable = Runnable { upAdapter() }
+    private val searchGroup get() = App.INSTANCE.getPrefString("searchGroup") ?: ""
+
     @Volatile
     private var searchIndex = -1
 
@@ -60,13 +62,13 @@ class ChangeSourceViewModel(application: Application) : BaseViewModel(applicatio
 
     fun loadDbSearchBook() {
         execute {
-            App.db.searchBookDao().getByNameAuthorEnable(name, author).let {
+            searchBooks.clear()
+            upAdapter()
+            App.db.searchBookDao.getChangeSourceSearch(name, author, searchGroup).let {
                 searchBooks.addAll(it)
+                searchBooksLiveData.postValue(searchBooks.toList())
                 if (it.size <= 1) {
-                    upAdapter()
                     startSearch()
-                } else {
-                    upAdapter()
                 }
             }
         }
@@ -81,12 +83,12 @@ class ChangeSourceViewModel(application: Application) : BaseViewModel(applicatio
             searchBooksLiveData.postValue(books.sortedBy { it.originOrder })
         } else {
             handler.removeCallbacks(sendRunnable)
-            handler.postDelayed(sendRunnable, 500 - System.currentTimeMillis() + postTime)
+            handler.postDelayed(sendRunnable, 500)
         }
     }
 
     private fun searchFinish(searchBook: SearchBook) {
-        App.db.searchBookDao().insert(searchBook)
+        App.db.searchBookDao.insert(searchBook)
         if (screenKey.isEmpty()) {
             searchBooks.add(searchBook)
         } else if (searchBook.name.contains(screenKey)) {
@@ -98,7 +100,11 @@ class ChangeSourceViewModel(application: Application) : BaseViewModel(applicatio
     private fun startSearch() {
         execute {
             bookSourceList.clear()
-            bookSourceList.addAll(App.db.bookSourceDao().allEnabled)
+            if (searchGroup.isBlank()) {
+                bookSourceList.addAll(App.db.bookSourceDao.allEnabled)
+            } else {
+                bookSourceList.addAll(App.db.bookSourceDao.getEnabledByGroup(searchGroup))
+            }
             searchStateData.postValue(true)
             initSearchPool()
             for (i in 0 until threadCount) {
@@ -113,80 +119,72 @@ class ChangeSourceViewModel(application: Application) : BaseViewModel(applicatio
                 return
             }
             searchIndex++
-            val source = bookSourceList[searchIndex]
-            val variableBook = SearchBook()
-            val task = WebBook(source)
-                .searchBook(name, variableBook = variableBook, scope = this, context = searchPool!!)
-                .timeout(60000L)
-                .onSuccess(IO) {
-                    it.forEach { searchBook ->
-                        if (searchBook.name == name && searchBook.author == author) {
-                            if (searchBook.latestChapterTitle.isNullOrEmpty()) {
-                                if (context.getPrefBoolean(PreferKey.changeSourceLoadInfo) || context.getPrefBoolean(PreferKey.changeSourceLoadToc)) {
-                                    loadBookInfo(searchBook.toBook())
-                                } else {
-                                    searchFinish(searchBook)
-                                }
+        }
+        val source = bookSourceList[searchIndex]
+        val webBook = WebBook(source)
+        val task = webBook
+            .searchBook(name, scope = this, context = searchPool!!)
+            .timeout(60000L)
+            .onSuccess(IO) {
+                it.forEach { searchBook ->
+                    if (searchBook.name == name && searchBook.author == author) {
+                        if (searchBook.latestChapterTitle.isNullOrEmpty()) {
+                            if (AppConfig.changeSourceLoadInfo || AppConfig.changeSourceLoadToc) {
+                                loadBookInfo(webBook, searchBook.toBook())
                             } else {
                                 searchFinish(searchBook)
                             }
-                            return@forEach
-                        }
-                    }
-                }
-                .onFinally {
-                    synchronized(this) {
-                        if (searchIndex < bookSourceList.lastIndex) {
-                            search()
                         } else {
-                            searchIndex++
-                        }
-                        if (searchIndex >= bookSourceList.lastIndex + min(bookSourceList.size,
-                                threadCount)
-                        ) {
-                            searchStateData.postValue(false)
-                        }
-                    }
-                }
-            tasks.add(task)
-        }
-    }
-
-    private fun loadBookInfo(book: Book) {
-        execute {
-            App.db.bookSourceDao().getBookSource(book.origin)?.let { bookSource ->
-                WebBook(bookSource).getBookInfo(book, this)
-                    .onSuccess {
-                        if (context.getPrefBoolean(PreferKey.changeSourceLoadToc)) {
-                            loadChapter(it)
-                        } else {
-                            //从详情页里获取最新章节
-                            book.latestChapterTitle = it.latestChapterTitle
-                            val searchBook = book.toSearchBook()
                             searchFinish(searchBook)
                         }
-                    }.onError {
-                        debug { context.getString(R.string.error_get_book_info) }
+                        return@onSuccess
                     }
-            } ?: debug { context.getString(R.string.error_no_source) }
-        }
+                }
+            }
+            .onFinally {
+                synchronized(this) {
+                    if (searchIndex < bookSourceList.lastIndex) {
+                        search()
+                    } else {
+                        searchIndex++
+                    }
+                    if (searchIndex >= bookSourceList.lastIndex + bookSourceList.size
+                        || searchIndex >= bookSourceList.lastIndex + threadCount
+                    ) {
+                        searchStateData.postValue(false)
+                    }
+                }
+            }
+        tasks.add(task)
     }
 
-    private fun loadChapter(book: Book) {
-        execute {
-            App.db.bookSourceDao().getBookSource(book.origin)?.let { bookSource ->
-                WebBook(bookSource).getChapterList(book, this)
-                    .onSuccess(IO) { chapters ->
-                        if (chapters.isNotEmpty()) {
-                            book.latestChapterTitle = chapters.last().title
-                            val searchBook: SearchBook = book.toSearchBook()
-                            searchFinish(searchBook)
-                        }
-                    }.onError {
-                        debug { context.getString(R.string.error_get_chapter_list) }
-                    }
-            } ?: debug { R.string.error_no_source }
-        }
+    private fun loadBookInfo(webBook: WebBook, book: Book) {
+        webBook.getBookInfo(book, this)
+            .onSuccess {
+                if (context.getPrefBoolean(PreferKey.changeSourceLoadToc)) {
+                    loadBookToc(webBook, book)
+                } else {
+                    //从详情页里获取最新章节
+                    book.latestChapterTitle = it.latestChapterTitle
+                    val searchBook = book.toSearchBook()
+                    searchFinish(searchBook)
+                }
+            }.onError {
+                debug { context.getString(R.string.error_get_book_info) }
+            }
+    }
+
+    private fun loadBookToc(webBook: WebBook, book: Book) {
+        webBook.getChapterList(book, this)
+            .onSuccess(IO) { chapters ->
+                if (chapters.isNotEmpty()) {
+                    book.latestChapterTitle = chapters.last().title
+                    val searchBook: SearchBook = book.toSearchBook()
+                    searchFinish(searchBook)
+                }
+            }.onError {
+                debug { context.getString(R.string.error_get_chapter_list) }
+            }
     }
 
     /**
@@ -198,7 +196,8 @@ class ChangeSourceViewModel(application: Application) : BaseViewModel(applicatio
             if (key.isNullOrEmpty()) {
                 loadDbSearchBook()
             } else {
-                val items = App.db.searchBookDao().getChangeSourceSearch(name, author, screenKey)
+                val items =
+                    App.db.searchBookDao.getChangeSourceSearch(name, author, screenKey, searchGroup)
                 searchBooks.clear()
                 searchBooks.addAll(items)
                 upAdapter()
@@ -223,9 +222,9 @@ class ChangeSourceViewModel(application: Application) : BaseViewModel(applicatio
 
     fun disableSource(searchBook: SearchBook) {
         execute {
-            App.db.bookSourceDao().getBookSource(searchBook.origin)?.let { source ->
+            App.db.bookSourceDao.getBookSource(searchBook.origin)?.let { source ->
                 source.enabled = false
-                App.db.bookSourceDao().update(source)
+                App.db.bookSourceDao.update(source)
             }
             searchBooks.remove(searchBook)
             upAdapter()

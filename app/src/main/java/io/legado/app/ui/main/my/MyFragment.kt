@@ -13,6 +13,7 @@ import io.legado.app.base.BaseFragment
 import io.legado.app.base.BasePreferenceFragment
 import io.legado.app.constant.EventBus
 import io.legado.app.constant.PreferKey
+import io.legado.app.databinding.FragmentMyConfigBinding
 import io.legado.app.help.AppConfig
 import io.legado.app.lib.theme.ATH
 import io.legado.app.service.WebService
@@ -23,19 +24,21 @@ import io.legado.app.ui.book.source.manage.BookSourceActivity
 import io.legado.app.ui.config.BackupRestoreUi
 import io.legado.app.ui.config.ConfigActivity
 import io.legado.app.ui.config.ConfigViewModel
-import io.legado.app.ui.filechooser.FileChooserDialog
+import io.legado.app.ui.filepicker.FilePickerDialog
 import io.legado.app.ui.replace.ReplaceRuleActivity
 import io.legado.app.ui.widget.dialog.TextDialog
 import io.legado.app.ui.widget.prefs.NameListPreference
 import io.legado.app.ui.widget.prefs.PreferenceCategory
 import io.legado.app.ui.widget.prefs.SwitchPreference
 import io.legado.app.utils.*
-import kotlinx.android.synthetic.main.view_title_bar.*
+import io.legado.app.utils.viewbindingdelegate.viewBinding
 
-class MyFragment : BaseFragment(R.layout.fragment_my_config), FileChooserDialog.CallBack {
+class MyFragment : BaseFragment(R.layout.fragment_my_config), FilePickerDialog.CallBack {
+
+    private val binding by viewBinding(FragmentMyConfigBinding::bind)
 
     override fun onFragmentCreated(view: View, savedInstanceState: Bundle?) {
-        setSupportToolbar(toolbar)
+        setSupportToolbar(binding.titleBar.toolbar)
         val fragmentTag = "prefFragment"
         var preferenceFragment = childFragmentManager.findFragmentByTag(fragmentTag)
         if (preferenceFragment == null) preferenceFragment = PreferenceFragment()
@@ -50,14 +53,10 @@ class MyFragment : BaseFragment(R.layout.fragment_my_config), FileChooserDialog.
     override fun onCompatOptionsItemSelected(item: MenuItem) {
         when (item.itemId) {
             R.id.menu_help -> {
-                val text = String(requireContext().assets.open("help/help.md").readBytes())
+                val text = String(requireContext().assets.open("help/appHelp.md").readBytes())
                 TextDialog.show(childFragmentManager, text, TextDialog.MD)
             }
         }
-    }
-
-    override fun onFilePicked(requestCode: Int, currentPath: String) {
-        BackupRestoreUi.onFilePicked(requestCode, currentPath)
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {

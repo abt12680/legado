@@ -13,13 +13,16 @@ import android.webkit.*
 import androidx.core.view.size
 import io.legado.app.R
 import io.legado.app.base.VMBaseActivity
+import io.legado.app.databinding.ActivityRssReadBinding
 import io.legado.app.lib.theme.DrawableUtils
 import io.legado.app.lib.theme.primaryTextColor
 import io.legado.app.service.help.Download
-import io.legado.app.ui.filechooser.FileChooserDialog
-import io.legado.app.ui.filechooser.FilePicker
+import io.legado.app.ui.association.ImportBookSourceActivity
+import io.legado.app.ui.association.ImportReplaceRuleActivity
+import io.legado.app.ui.association.ImportRssSourceActivity
+import io.legado.app.ui.filepicker.FilePicker
+import io.legado.app.ui.filepicker.FilePickerDialog
 import io.legado.app.utils.*
-import kotlinx.android.synthetic.main.activity_rss_read.*
 import kotlinx.coroutines.launch
 import org.apache.commons.text.StringEscapeUtils
 import org.jetbrains.anko.downloadManager
@@ -27,8 +30,8 @@ import org.jetbrains.anko.share
 import org.jsoup.Jsoup
 
 
-class ReadRssActivity : VMBaseActivity<ReadRssViewModel>(R.layout.activity_rss_read, false),
-    FileChooserDialog.CallBack,
+class ReadRssActivity : VMBaseActivity<ActivityRssReadBinding, ReadRssViewModel>(false),
+    FilePickerDialog.CallBack,
     ReadRssViewModel.CallBack {
 
     override val viewModel: ReadRssViewModel
@@ -40,14 +43,20 @@ class ReadRssActivity : VMBaseActivity<ReadRssViewModel>(R.layout.activity_rss_r
     private var customWebViewCallback: WebChromeClient.CustomViewCallback? = null
     private var webPic: String? = null
 
+    override fun getViewBinding(): ActivityRssReadBinding {
+        return ActivityRssReadBinding.inflate(layoutInflater)
+    }
+
     override fun onActivityCreated(savedInstanceState: Bundle?) {
         viewModel.callBack = this
-        title_bar.title = intent.getStringExtra("title")
+        binding.titleBar.title = intent.getStringExtra("title")
         initWebView()
         initLiveData()
         viewModel.initData(intent)
     }
 
+    @Suppress("DEPRECATION")
+    @SuppressLint("SwitchIntDef")
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
         when (newConfig.orientation) {
@@ -86,30 +95,58 @@ class ReadRssActivity : VMBaseActivity<ReadRssViewModel>(R.layout.activity_rss_r
     }
 
     private fun initWebView() {
-        web_view.webChromeClient = object : WebChromeClient() {
+        binding.webView.webChromeClient = object : WebChromeClient() {
             override fun onShowCustomView(view: View?, callback: CustomViewCallback?) {
                 requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR
-                ll_view.invisible()
-                custom_web_view.addView(view)
+                binding.llView.invisible()
+                binding.customWebView.addView(view)
                 customWebViewCallback = callback
             }
 
             override fun onHideCustomView() {
-                custom_web_view.removeAllViews()
-                ll_view.visible()
+                binding.customWebView.removeAllViews()
+                binding.llView.visible()
                 requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
             }
         }
-        web_view.webViewClient = object : WebViewClient() {
+        binding.webView.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(
                 view: WebView?,
                 request: WebResourceRequest?
             ): Boolean {
-                if (request?.url?.scheme == "http" || request?.url?.scheme == "https") {
-                    return false
-                }
-                request?.url?.let {
-                    openUrl(it)
+                request?.let {
+                    if (it.url.scheme == "http" || it.url.scheme == "https") {
+                        return false
+                    } else if (it.url.scheme == "yuedu") {
+                        when (it.url.host) {
+                            "booksource" -> {
+                                val intent = Intent(
+                                    this@ReadRssActivity,
+                                    ImportBookSourceActivity::class.java
+                                )
+                                intent.data = it.url
+                                startActivity(intent)
+                            }
+                            "rsssource" -> {
+                                val intent = Intent(
+                                    this@ReadRssActivity,
+                                    ImportRssSourceActivity::class.java
+                                )
+                                intent.data = it.url
+                                startActivity(intent)
+                            }
+                            "replace" -> {
+                                val intent = Intent(
+                                    this@ReadRssActivity,
+                                    ImportReplaceRuleActivity::class.java
+                                )
+                                intent.data = it.url
+                                startActivity(intent)
+                            }
+                        }
+                        return true
+                    }
+                    openUrl(it.url)
                 }
                 return true
             }
@@ -125,13 +162,13 @@ class ReadRssActivity : VMBaseActivity<ReadRssViewModel>(R.layout.activity_rss_r
                 return true
             }
         }
-        web_view.settings.apply {
+        binding.webView.settings.apply {
             mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
             domStorageEnabled = true
             allowContentAccess = true
         }
-        web_view.setOnLongClickListener {
-            val hitTestResult = web_view.hitTestResult
+        binding.webView.setOnLongClickListener {
+            val hitTestResult = binding.webView.hitTestResult
             if (hitTestResult.type == WebView.HitTestResult.IMAGE_TYPE ||
                 hitTestResult.type == WebView.HitTestResult.SRC_IMAGE_ANCHOR_TYPE
             ) {
@@ -143,9 +180,9 @@ class ReadRssActivity : VMBaseActivity<ReadRssViewModel>(R.layout.activity_rss_r
             }
             return@setOnLongClickListener false
         }
-        web_view.setDownloadListener { url, _, contentDisposition, _, _ ->
+        binding.webView.setDownloadListener { url, _, contentDisposition, _, _ ->
             val fileName = URLUtil.guessFileName(url, contentDisposition, null)
-            ll_view.longSnackbar(fileName, getString(R.string.action_download)) {
+            binding.llView.longSnackbar(fileName, getString(R.string.action_download)) {
                 // 指定下载地址
                 val request = DownloadManager.Request(Uri.parse(url))
                 // 允许媒体扫描，根据下载的文件类型被加入相册、音乐等媒体库
@@ -190,40 +227,30 @@ class ReadRssActivity : VMBaseActivity<ReadRssViewModel>(R.layout.activity_rss_r
 
     @SuppressLint("SetJavaScriptEnabled")
     private fun initLiveData() {
-        viewModel.contentLiveData.observe(this, { content ->
+        viewModel.contentLiveData.observe(this) { content ->
             viewModel.rssArticle?.let {
                 upJavaScriptEnable()
                 val url = NetworkUtils.getAbsoluteURL(it.origin, it.link)
                 val html = viewModel.clHtml(content)
                 if (viewModel.rssSource?.loadWithBaseUrl == true) {
-                    web_view.loadDataWithBaseURL(
-                        url,
-                        html,
-                        "text/html",
-                        "utf-8",
-                        url
-                    )//不想用baseUrl进else
+                    binding.webView
+                        .loadDataWithBaseURL(url, html, "text/html", "utf-8", url)//不想用baseUrl进else
                 } else {
-                    web_view.loadDataWithBaseURL(
-                        null,
-                        html,
-                        "text/html;charset=utf-8",
-                        "utf-8",
-                        url
-                    )
+                    binding.webView
+                        .loadDataWithBaseURL(null, html, "text/html;charset=utf-8", "utf-8", url)
                 }
             }
-        })
-        viewModel.urlLiveData.observe(this, {
+        }
+        viewModel.urlLiveData.observe(this) {
             upJavaScriptEnable()
-            web_view.loadUrl(it.url, it.headerMap)
-        })
+            binding.webView.loadUrl(it.url, it.headerMap)
+        }
     }
 
     @SuppressLint("SetJavaScriptEnabled")
     private fun upJavaScriptEnable() {
         if (viewModel.rssSource?.enableJs == true) {
-            web_view.settings.javaScriptEnabled = true
+            binding.webView.settings.javaScriptEnabled = true
         }
     }
 
@@ -264,12 +291,12 @@ class ReadRssActivity : VMBaseActivity<ReadRssViewModel>(R.layout.activity_rss_r
     override fun onKeyUp(keyCode: Int, event: KeyEvent?): Boolean {
         event?.let {
             when (keyCode) {
-                KeyEvent.KEYCODE_BACK -> if (event.isTracking && !event.isCanceled && web_view.canGoBack()) {
-                    if (custom_web_view.size > 0) {
+                KeyEvent.KEYCODE_BACK -> if (event.isTracking && !event.isCanceled && binding.webView.canGoBack()) {
+                    if (binding.customWebView.size > 0) {
                         customWebViewCallback?.onCustomViewHidden()
                         return true
-                    } else if (web_view.copyBackForwardList().size > 1) {
-                        web_view.goBack()
+                    } else if (binding.webView.copyBackForwardList().size > 1) {
+                        binding.webView.goBack()
                         return true
                     }
                 }
@@ -284,8 +311,8 @@ class ReadRssActivity : VMBaseActivity<ReadRssViewModel>(R.layout.activity_rss_r
             viewModel.textToSpeech?.stop()
             upTtsMenu(false)
         } else {
-            web_view.settings.javaScriptEnabled = true
-            web_view.evaluateJavascript("document.documentElement.outerHTML") {
+            binding.webView.settings.javaScriptEnabled = true
+            binding.webView.evaluateJavascript("document.documentElement.outerHTML") {
                 val html = StringEscapeUtils.unescapeJson(it)
                     .replace("^\"|\"$".toRegex(), "")
                 Jsoup.parse(html).text()
@@ -294,27 +321,19 @@ class ReadRssActivity : VMBaseActivity<ReadRssViewModel>(R.layout.activity_rss_r
         }
     }
 
-    override fun onFilePicked(requestCode: Int, currentPath: String) {
-        when (requestCode) {
-            savePathRequestCode -> {
-                ACache.get(this).put(imagePathKey, currentPath)
-                viewModel.saveImage(webPic, currentPath)
-            }
-        }
-    }
-
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         when (requestCode) {
             savePathRequestCode -> data?.data?.let {
-                onFilePicked(requestCode, it.toString())
+                ACache.get(this).put(imagePathKey, it.toString())
+                viewModel.saveImage(webPic, it.toString())
             }
         }
     }
 
     override fun onDestroy() {
         super.onDestroy()
-        web_view.destroy()
+        binding.webView.destroy()
     }
 
 }

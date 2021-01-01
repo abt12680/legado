@@ -122,7 +122,6 @@ class CircleImageView @JvmOverloads constructor(
     var isInView = false
 
     init {
-        super.setScaleType(SCALE_TYPE)
         val a = context.obtainStyledAttributes(attrs, R.styleable.CircleImageView)
         mBorderWidth =
             a.getDimensionPixelSize(
@@ -139,6 +138,7 @@ class CircleImageView @JvmOverloads constructor(
                 DEFAULT_CIRCLE_BACKGROUND_COLOR
             )
         text = a.getString(R.styleable.CircleImageView_text)
+        contentDescription = text
         if (a.hasValue(R.styleable.CircleImageView_textColor)) {
             textColor = a.getColor(
                 R.styleable.CircleImageView_textColor,
@@ -156,16 +156,6 @@ class CircleImageView @JvmOverloads constructor(
         if (mSetupPending) {
             setup()
             mSetupPending = false
-        }
-    }
-
-    override fun getScaleType(): ScaleType {
-        return SCALE_TYPE
-    }
-
-    override fun setScaleType(scaleType: ScaleType) {
-        if (scaleType != SCALE_TYPE) {
-            throw IllegalArgumentException(String.format("ScaleType %s not supported.", scaleType))
         }
     }
 
@@ -226,6 +216,7 @@ class CircleImageView @JvmOverloads constructor(
 
     fun setText(text: String?) {
         this.text = text
+        contentDescription = text
         invalidate()
     }
 
@@ -454,7 +445,6 @@ class CircleImageView @JvmOverloads constructor(
     }
 
     companion object {
-        private val SCALE_TYPE = ScaleType.CENTER_CROP
         private val BITMAP_CONFIG = Bitmap.Config.ARGB_8888
         private const val COLOR_DRAWABLE_DIMENSION = 2
         private const val DEFAULT_BORDER_WIDTH = 0

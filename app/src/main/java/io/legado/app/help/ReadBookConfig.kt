@@ -4,7 +4,6 @@ import android.graphics.Color
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.Drawable
-import android.os.Parcelable
 import androidx.annotation.Keep
 import io.legado.app.App
 import io.legado.app.R
@@ -12,7 +11,6 @@ import io.legado.app.constant.PreferKey
 import io.legado.app.help.coroutine.Coroutine
 import io.legado.app.ui.book.read.page.provider.ChapterProvider
 import io.legado.app.utils.*
-import kotlinx.android.parcel.Parcelize
 import java.io.File
 
 /**
@@ -22,8 +20,9 @@ import java.io.File
 object ReadBookConfig {
     const val configFileName = "readConfig.json"
     const val shareConfigFileName = "shareReadConfig.json"
-    val configFilePath = FileUtils.getPath(App.INSTANCE.filesDir, configFileName)
-    val shareConfigFilePath = FileUtils.getPath(App.INSTANCE.filesDir, shareConfigFileName)
+    val context get() = App.INSTANCE
+    val configFilePath = FileUtils.getPath(context.filesDir, configFileName)
+    val shareConfigFilePath = FileUtils.getPath(context.filesDir, shareConfigFileName)
     val configList: ArrayList<Config> = arrayListOf()
     lateinit var shareConfig: Config
     var durConfig
@@ -64,7 +63,7 @@ object ReadBookConfig {
                 e.printStackTrace()
             }
         }
-        (configs ?: DefaultData.defaultReadConfigs).let {
+        (configs ?: DefaultData.readConfigs).let {
             configList.clear()
             configList.addAll(it)
         }
@@ -85,7 +84,7 @@ object ReadBookConfig {
     }
 
     fun upBg() {
-        val resources = App.INSTANCE.resources
+        val resources = context.resources
         val dm = resources.displayMetrics
         val width = dm.widthPixels
         val height = dm.heightPixels
@@ -126,7 +125,7 @@ object ReadBookConfig {
     }
 
     private fun resetAll() {
-        DefaultData.defaultReadConfigs.let {
+        DefaultData.readConfigs.let {
             configList.clear()
             configList.addAll(it)
             save()
@@ -134,31 +133,30 @@ object ReadBookConfig {
     }
 
     //配置写入读取
-    var autoReadSpeed = App.INSTANCE.getPrefInt(PreferKey.autoReadSpeed, 46)
+    var readBodyToLh = context.getPrefBoolean(PreferKey.readBodyToLh, true)
+    var autoReadSpeed = context.getPrefInt(PreferKey.autoReadSpeed, 46)
         set(value) {
             field = value
-            App.INSTANCE.putPrefInt(PreferKey.autoReadSpeed, value)
+            context.putPrefInt(PreferKey.autoReadSpeed, value)
         }
-    var styleSelect = App.INSTANCE.getPrefInt(PreferKey.readStyleSelect)
+    var styleSelect = context.getPrefInt(PreferKey.readStyleSelect)
         set(value) {
             field = value
-            if (App.INSTANCE.getPrefInt(PreferKey.readStyleSelect) != value) {
-                App.INSTANCE.putPrefInt(PreferKey.readStyleSelect, value)
+            if (context.getPrefInt(PreferKey.readStyleSelect) != value) {
+                context.putPrefInt(PreferKey.readStyleSelect, value)
             }
         }
-    var shareLayout = App.INSTANCE.getPrefBoolean(PreferKey.shareLayout)
+    var shareLayout = context.getPrefBoolean(PreferKey.shareLayout)
         set(value) {
             field = value
-            if (App.INSTANCE.getPrefBoolean(PreferKey.shareLayout) != value) {
-                App.INSTANCE.putPrefBoolean(PreferKey.shareLayout, value)
+            if (context.getPrefBoolean(PreferKey.shareLayout) != value) {
+                context.putPrefBoolean(PreferKey.shareLayout, value)
             }
         }
-    val clickTurnPage get() = App.INSTANCE.getPrefBoolean(PreferKey.clickTurnPage, true)
-    val clickAllNext get() = App.INSTANCE.getPrefBoolean(PreferKey.clickAllNext, false)
-    val textFullJustify get() = App.INSTANCE.getPrefBoolean(PreferKey.textFullJustify, true)
-    val textBottomJustify get() = App.INSTANCE.getPrefBoolean(PreferKey.textBottomJustify, true)
-    var hideStatusBar = App.INSTANCE.getPrefBoolean(PreferKey.hideStatusBar)
-    var hideNavigationBar = App.INSTANCE.getPrefBoolean(PreferKey.hideNavigationBar)
+    val textFullJustify get() = context.getPrefBoolean(PreferKey.textFullJustify, true)
+    val textBottomJustify get() = context.getPrefBoolean(PreferKey.textBottomJustify, true)
+    var hideStatusBar = context.getPrefBoolean(PreferKey.hideStatusBar)
+    var hideNavigationBar = context.getPrefBoolean(PreferKey.hideNavigationBar)
 
     val config get() = if (shareLayout) shareConfig else durConfig
 
@@ -350,14 +348,14 @@ object ReadBookConfig {
             exportConfig.tipFooterLeft = shareConfig.tipFooterLeft
             exportConfig.tipFooterMiddle = shareConfig.tipFooterMiddle
             exportConfig.tipFooterRight = shareConfig.tipFooterRight
-            exportConfig.hideHeader = shareConfig.hideHeader
-            exportConfig.hideFooter = shareConfig.hideFooter
+            exportConfig.tipColor = shareConfig.tipColor
+            exportConfig.headerMode = shareConfig.headerMode
+            exportConfig.footerMode = shareConfig.footerMode
         }
         return exportConfig
     }
 
     @Keep
-    @Parcelize
     class Config(
         var name: String = "",
         var bgStr: String = "#EEEEEE",//白天背景
@@ -405,9 +403,10 @@ object ReadBookConfig {
         var tipFooterLeft: Int = ReadTipConfig.chapterTitle,
         var tipFooterMiddle: Int = ReadTipConfig.none,
         var tipFooterRight: Int = ReadTipConfig.pageAndTotal,
-        var hideHeader: Boolean = true,
-        var hideFooter: Boolean = false
-    ) : Parcelable {
+        var tipColor: Int = 0,
+        var headerMode: Int = 0,
+        var footerMode: Int = 0
+    ) {
 
         fun setCurTextColor(color: Int) {
             when {
@@ -491,7 +490,7 @@ object ReadBookConfig {
 
         fun curBgDrawable(width: Int, height: Int): Drawable {
             var bgDrawable: Drawable? = null
-            val resources = App.INSTANCE.resources
+            val resources = context.resources
             try {
                 bgDrawable = when (curBgType()) {
                     0 -> ColorDrawable(Color.parseColor(curBgStr()))
@@ -499,7 +498,7 @@ object ReadBookConfig {
                         BitmapDrawable(
                             resources,
                             BitmapUtils.decodeAssetsBitmap(
-                                App.INSTANCE,
+                                context,
                                 "bg" + File.separator + curBgStr(),
                                 width,
                                 height
@@ -514,7 +513,7 @@ object ReadBookConfig {
             } catch (e: Exception) {
                 e.printStackTrace()
             }
-            return bgDrawable ?: ColorDrawable(App.INSTANCE.getCompatColor(R.color.background))
+            return bgDrawable ?: ColorDrawable(context.getCompatColor(R.color.background))
         }
     }
 }

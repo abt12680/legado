@@ -7,20 +7,18 @@ import com.bumptech.glide.load.model.GlideUrl
 import com.bumptech.glide.load.model.LazyHeaders
 import io.legado.app.constant.AppConst.SCRIPT_ENGINE
 import io.legado.app.constant.AppConst.UA_NAME
-import io.legado.app.constant.AppConst.userAgent
 import io.legado.app.constant.AppPattern.EXP_PATTERN
 import io.legado.app.constant.AppPattern.JS_PATTERN
 import io.legado.app.data.entities.BaseBook
 import io.legado.app.data.entities.BookChapter
+import io.legado.app.help.AppConfig
+import io.legado.app.help.CacheManager
 import io.legado.app.help.JsExtensions
 import io.legado.app.help.http.*
-import io.legado.app.help.http.api.HttpGetApi
-import io.legado.app.help.http.api.HttpPostApi
 import io.legado.app.utils.*
-import okhttp3.FormBody
-import okhttp3.MediaType
-import okhttp3.RequestBody
-import retrofit2.Call
+import rxhttp.wrapper.param.RxHttp
+import rxhttp.wrapper.param.toByteArray
+import rxhttp.wrapper.param.toStrResponse
 import java.net.URLEncoder
 import java.util.*
 import java.util.regex.Pattern
@@ -42,25 +40,24 @@ class AnalyzeUrl(
     var useWebView: Boolean = false,
     val book: BaseBook? = null,
     val chapter: BookChapter? = null,
+    private val ruleData: RuleDataInterface? = null,
     headerMapF: Map<String, String>? = null
 ) : JsExtensions {
     companion object {
+        val splitUrlRegex = Regex(",\\s*(?=\\{)")
         private val pagePattern = Pattern.compile("<(.*?)>")
-        private val jsonType = MediaType.parse("application/json; charset=utf-8")
     }
 
     var url: String = ""
     val headerMap = HashMap<String, String>()
     var body: String? = null
+    var type: String? = null
     private lateinit var urlHasQuery: String
     private var queryStr: String? = null
     private val fieldMap = LinkedHashMap<String, String>()
     private var charset: String? = null
-    private var requestBody: RequestBody? = null
     private var method = RequestMethod.GET
-    private val splitUrlRegex = Regex(",\\s*(?=\\{)")
     private var proxy: String? = null
-    private var type: String? = null
 
     init {
         baseUrl = baseUrl.split(splitUrlRegex, 1)[0]
@@ -136,18 +133,20 @@ class AnalyzeUrl(
         if (ruleUrl.contains("{{") && ruleUrl.contains("}}")) {
             var jsEval: Any
             val sb = StringBuffer()
-            val simpleBindings = SimpleBindings()
-            simpleBindings["java"] = this
-            simpleBindings["baseUrl"] = baseUrl
-            simpleBindings["page"] = page
-            simpleBindings["key"] = key
-            simpleBindings["speakText"] = speakText
-            simpleBindings["speakSpeed"] = speakSpeed
-            simpleBindings["book"] = book
+            val bindings = SimpleBindings()
+            bindings["java"] = this
+            bindings["cookie"] = CookieStore
+            bindings["cache"] = CacheManager
+            bindings["baseUrl"] = baseUrl
+            bindings["page"] = page
+            bindings["key"] = key
+            bindings["speakText"] = speakText
+            bindings["speakSpeed"] = speakSpeed
+            bindings["book"] = book
             val expMatcher = EXP_PATTERN.matcher(ruleUrl)
             while (expMatcher.find()) {
                 jsEval = expMatcher.group(1)?.let {
-                    SCRIPT_ENGINE.eval(it, simpleBindings)
+                    SCRIPT_ENGINE.eval(it, bindings)
                 } ?: ""
                 if (jsEval is String) {
                     expMatcher.appendReplacement(sb, jsEval)
@@ -167,7 +166,7 @@ class AnalyzeUrl(
      */
     private fun initUrl() {
         var urlArray = ruleUrl.split(splitUrlRegex, 2)
-        url = urlArray[0]
+        url = NetworkUtils.getAbsoluteURL(baseUrl, urlArray[0])
         urlHasQuery = urlArray[0]
         NetworkUtils.getBaseUrl(url)?.let {
             baseUrl = it
@@ -204,7 +203,7 @@ class AnalyzeUrl(
             }
         }
         headerMap[UA_NAME] ?: let {
-            headerMap[UA_NAME] = userAgent
+            headerMap[UA_NAME] = AppConfig.userAgent
         }
         when (method) {
             RequestMethod.GET -> {
@@ -218,13 +217,9 @@ class AnalyzeUrl(
             }
             RequestMethod.POST -> {
                 body?.let {
-                    if (it.isJson()) {
-                        requestBody = RequestBody.create(jsonType, it)
-                    } else {
+                    if (!it.isJson()) {
                         analyzeFields(it)
                     }
-                } ?: let {
-                    requestBody = FormBody.Builder().build()
                 }
             }
         }
@@ -259,6 +254,8 @@ class AnalyzeUrl(
     private fun evalJS(jsStr: String, result: Any? = null): Any? {
         val bindings = SimpleBindings()
         bindings["java"] = this
+        bindings["cookie"] = CookieStore
+        bindings["cache"] = CacheManager
         bindings["page"] = page
         bindings["key"] = key
         bindings["speakText"] = speakText
@@ -270,64 +267,36 @@ class AnalyzeUrl(
     }
 
     fun put(key: String, value: String): String {
-        book?.putVariable(key, value)
+        chapter?.putVariable(key, value)
+            ?: book?.putVariable(key, value)
+            ?: ruleData?.putVariable(key, value)
         return value
     }
 
     fun get(key: String): String {
-        return book?.variableMap?.get(key) ?: ""
-    }
-
-    fun getResponse(tag: String): Call<String> {
-        val cookie = CookieStore.getCookie(tag)
-        if (cookie.isNotEmpty()) {
-            val cookieMap = CookieStore.cookieToMap(cookie)
-            val customCookieMap = CookieStore.cookieToMap(headerMap["Cookie"] ?: "")
-            cookieMap.putAll(customCookieMap)
-            val newCookie = CookieStore.mapToCookie(cookieMap)
-            newCookie?.let {
-                headerMap.put("Cookie", it)
+        when (key) {
+            "bookName" -> book?.let {
+                return it.name
+            }
+            "title" -> chapter?.let {
+                return it.title
             }
         }
-        return when {
-            method == RequestMethod.POST -> {
-                if (fieldMap.isNotEmpty()) {
-                    HttpHelper
-                        .getApiService<HttpPostApi>(baseUrl, charset, proxy)
-                        .postMap(url, fieldMap, headerMap)
-                } else {
-                    HttpHelper
-                        .getApiService<HttpPostApi>(baseUrl, charset, proxy)
-                        .postBody(url, requestBody!!, headerMap)
-                }
-            }
-            fieldMap.isEmpty() -> HttpHelper
-                .getApiService<HttpGetApi>(baseUrl, charset, proxy)
-                .get(url, headerMap)
-            else -> HttpHelper
-                .getApiService<HttpGetApi>(baseUrl, charset, proxy)
-                .getMap(url, fieldMap, headerMap)
-        }
+        return chapter?.variableMap?.get(key)
+            ?: book?.variableMap?.get(key)
+            ?: ruleData?.variableMap?.get(key)
+            ?: ""
     }
 
-    suspend fun getResponseAwait(
+    suspend fun getStrResponse(
         tag: String,
         jsStr: String? = null,
         sourceRegex: String? = null,
-    ): Res {
+    ): StrResponse {
         if (type != null) {
-            return Res(url, StringUtils.byteToHexString(getResponseBytes(tag)))
+            return StrResponse(url, StringUtils.byteToHexString(getByteArray(tag)))
         }
-        val cookie = CookieStore.getCookie(tag)
-        if (cookie.isNotEmpty()) {
-            val cookieMap = CookieStore.cookieToMap(cookie)
-            val customCookieMap = CookieStore.cookieToMap(headerMap["Cookie"] ?: "")
-            cookieMap.putAll(customCookieMap)
-            val newCookie = CookieStore.mapToCookie(cookieMap)
-            newCookie?.let {
-                headerMap.put("Cookie", it)
-            }
-        }
+        setCookie(tag)
         if (useWebView) {
             val params = AjaxWebView.AjaxParams(url)
             params.headerMap = headerMap
@@ -338,33 +307,63 @@ class AnalyzeUrl(
             params.tag = tag
             return HttpHelper.ajax(params)
         }
-        val res = when {
-            method == RequestMethod.POST -> {
+        return when (method) {
+            RequestMethod.POST -> {
                 if (fieldMap.isNotEmpty()) {
-                    HttpHelper
-                        .getApiService<HttpPostApi>(baseUrl, charset, proxy)
-                        .postMapAsync(url, fieldMap, headerMap)
+                    RxHttp.postForm(url)
+                        .setAssemblyEnabled(false)
+                        .setOkClient(HttpHelper.getProxyClient(proxy))
+                        .addAllEncoded(fieldMap)
+                        .addAllHeader(headerMap)
+                        .toStrResponse().await()
                 } else {
-                    HttpHelper
-                        .getApiService<HttpPostApi>(baseUrl, charset, proxy)
-                        .postBodyAsync(url, requestBody!!, headerMap)
+                    RxHttp.postJson(url)
+                        .setAssemblyEnabled(false)
+                        .setOkClient(HttpHelper.getProxyClient(proxy))
+                        .addAll(body)
+                        .addAllHeader(headerMap)
+                        .toStrResponse().await()
                 }
             }
-            fieldMap.isEmpty() -> {
-                HttpHelper
-                    .getApiService<HttpGetApi>(baseUrl, charset, proxy)
-                    .getAsync(url, headerMap)
-            }
-            else -> {
-                HttpHelper
-                    .getApiService<HttpGetApi>(baseUrl, charset, proxy)
-                    .getMapAsync(url, fieldMap, headerMap)
-            }
+            else -> RxHttp.get(url)
+                .setAssemblyEnabled(false)
+                .setOkClient(HttpHelper.getProxyClient(proxy))
+                .addAllEncoded(fieldMap)
+                .addAllHeader(headerMap)
+                .toStrResponse().await()
         }
-        return Res(NetworkUtils.getUrl(res), res.body())
     }
 
-    suspend fun getResponseBytes(tag: String? = null): ByteArray? {
+    suspend fun getByteArray(tag: String? = null): ByteArray {
+        setCookie(tag)
+        return when (method) {
+            RequestMethod.POST -> {
+                if (fieldMap.isNotEmpty()) {
+                    RxHttp.postForm(url)
+                        .setAssemblyEnabled(false)
+                        .setOkClient(HttpHelper.getProxyClient(proxy))
+                        .addAllEncoded(fieldMap)
+                        .addAllHeader(headerMap)
+                        .toByteArray().await()
+                } else {
+                    RxHttp.postJson(url)
+                        .setAssemblyEnabled(false)
+                        .setOkClient(HttpHelper.getProxyClient(proxy))
+                        .addAll(body)
+                        .addAllHeader(headerMap)
+                        .toByteArray().await()
+                }
+            }
+            else -> RxHttp.get(url)
+                .setAssemblyEnabled(false)
+                .setOkClient(HttpHelper.getProxyClient(proxy))
+                .addAllEncoded(fieldMap)
+                .addAllHeader(headerMap)
+                .toByteArray().await()
+        }
+    }
+
+    private fun setCookie(tag: String?) {
         if (tag != null) {
             val cookie = CookieStore.getCookie(tag)
             if (cookie.isNotEmpty()) {
@@ -377,26 +376,6 @@ class AnalyzeUrl(
                 }
             }
         }
-        val response = when {
-            method == RequestMethod.POST -> {
-                if (fieldMap.isNotEmpty()) {
-                    HttpHelper
-                        .getBytesApiService<HttpPostApi>(baseUrl)
-                        .postMapByteAsync(url, fieldMap, headerMap)
-                } else {
-                    HttpHelper
-                        .getBytesApiService<HttpPostApi>(baseUrl)
-                        .postBodyByteAsync(url, requestBody!!, headerMap)
-                }
-            }
-            fieldMap.isEmpty() -> HttpHelper
-                .getBytesApiService<HttpGetApi>(baseUrl)
-                .getByteAsync(url, headerMap)
-            else -> HttpHelper
-                .getBytesApiService<HttpGetApi>(baseUrl)
-                .getMapByteAsync(url, fieldMap, headerMap)
-        }
-        return response.body()
     }
 
     fun getGlideUrl(): GlideUrl {

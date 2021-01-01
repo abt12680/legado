@@ -6,17 +6,13 @@ import io.legado.app.base.BaseViewModel
 import io.legado.app.constant.BookType
 import io.legado.app.constant.EventBus
 import io.legado.app.data.entities.Book
-import io.legado.app.data.entities.RssSource
 import io.legado.app.help.AppConfig
 import io.legado.app.help.BookHelp
 import io.legado.app.help.DefaultData
-import io.legado.app.help.http.HttpHelper
-import io.legado.app.help.storage.Restore
+import io.legado.app.help.LocalConfig
 import io.legado.app.model.webBook.WebBook
 import io.legado.app.service.help.CacheBook
 import io.legado.app.utils.FileUtils
-import io.legado.app.utils.GSON
-import io.legado.app.utils.fromJsonObject
 import io.legado.app.utils.postEvent
 import kotlinx.coroutines.Dispatchers.IO
 import kotlinx.coroutines.asCoroutineDispatcher
@@ -48,7 +44,7 @@ class MainViewModel(application: Application) : BaseViewModel(application) {
 
     fun upAllBookToc() {
         execute {
-            upToc(App.db.bookDao().hasUpdateBooks)
+            upToc(App.db.bookDao.hasUpdateBooks)
         }
     }
 
@@ -68,44 +64,43 @@ class MainViewModel(application: Application) : BaseViewModel(application) {
         }
     }
 
+    @Synchronized
     private fun updateToc() {
-        synchronized(this) {
-            bookMap.forEach { bookEntry ->
-                if (!updateList.contains(bookEntry.key)) {
-                    val book = bookEntry.value
-                    synchronized(this) {
-                        updateList.add(book.bookUrl)
-                        postEvent(EventBus.UP_BOOK, book.bookUrl)
-                    }
-                    App.db.bookSourceDao().getBookSource(book.origin)?.let { bookSource ->
-                        val webBook = WebBook(bookSource)
-                        webBook.getChapterList(book, context = upTocPool)
-                            .timeout(300000)
-                            .onSuccess(IO) {
-                                App.db.bookDao().update(book)
-                                App.db.bookChapterDao().delByBook(book.bookUrl)
-                                App.db.bookChapterDao().insert(*it.toTypedArray())
-                                cacheBook(webBook, book)
-                            }
-                            .onError {
-                                it.printStackTrace()
-                            }
-                            .onFinally {
-                                synchronized(this) {
-                                    bookMap.remove(bookEntry.key)
-                                    updateList.remove(book.bookUrl)
-                                    postEvent(EventBus.UP_BOOK, book.bookUrl)
-                                    upNext()
-                                }
-                            }
-                    } ?: synchronized(this) {
-                        bookMap.remove(bookEntry.key)
-                        updateList.remove(book.bookUrl)
-                        postEvent(EventBus.UP_BOOK, book.bookUrl)
-                        upNext()
-                    }
-                    return
+        bookMap.forEach { bookEntry ->
+            if (!updateList.contains(bookEntry.key)) {
+                val book = bookEntry.value
+                synchronized(this) {
+                    updateList.add(book.bookUrl)
+                    postEvent(EventBus.UP_BOOK, book.bookUrl)
                 }
+                App.db.bookSourceDao.getBookSource(book.origin)?.let { bookSource ->
+                    val webBook = WebBook(bookSource)
+                    webBook.getChapterList(book, context = upTocPool)
+                        .timeout(300000)
+                        .onSuccess(IO) {
+                            App.db.bookDao.update(book)
+                            App.db.bookChapterDao.delByBook(book.bookUrl)
+                            App.db.bookChapterDao.insert(*it.toTypedArray())
+                            cacheBook(webBook, book)
+                        }
+                        .onError {
+                            it.printStackTrace()
+                        }
+                        .onFinally {
+                            synchronized(this) {
+                                bookMap.remove(bookEntry.key)
+                                updateList.remove(book.bookUrl)
+                                postEvent(EventBus.UP_BOOK, book.bookUrl)
+                                upNext()
+                            }
+                        }
+                } ?: synchronized(this) {
+                    bookMap.remove(bookEntry.key)
+                    updateList.remove(book.bookUrl)
+                    postEvent(EventBus.UP_BOOK, book.bookUrl)
+                    upNext()
+                }
+                return
             }
         }
     }
@@ -115,7 +110,7 @@ class MainViewModel(application: Application) : BaseViewModel(application) {
             if (book.totalChapterNum > book.durChapterIndex) {
                 val downloadToIndex = min(book.totalChapterNum, book.durChapterIndex.plus(10))
                 for (i in book.durChapterIndex until downloadToIndex) {
-                    App.db.bookChapterDao().getChapter(book.bookUrl, i)?.let { chapter ->
+                    App.db.bookChapterDao.getChapter(book.bookUrl, i)?.let { chapter ->
                         if (!BookHelp.hasContent(book, chapter)) {
                             var addToCache = false
                             while (!addToCache) {
@@ -141,30 +136,24 @@ class MainViewModel(application: Application) : BaseViewModel(application) {
         }
     }
 
-    fun initRss() {
+    fun postLoad() {
         execute {
-            val url = "https://gitee.com/alanskycn/yuedu/raw/master/JS/RSS/rssSource"
-            HttpHelper.simpleGet(url)?.let { body ->
-                val sources = mutableListOf<RssSource>()
-                val items: List<Map<String, Any>> = Restore.jsonPath.parse(body).read("$")
-                for (item in items) {
-                    val jsonItem = Restore.jsonPath.parse(item)
-                    GSON.fromJsonObject<RssSource>(jsonItem.jsonString())?.let { source ->
-                        sources.add(source)
-                    }
+            FileUtils.deleteFile(FileUtils.getPath(context.cacheDir, "Fonts"))
+            if (App.db.httpTTSDao.count == 0) {
+                DefaultData.httpTTS.let {
+                    App.db.httpTTSDao.insert(*it.toTypedArray())
                 }
-                App.db.rssSourceDao().insert(*sources.toTypedArray())
             }
         }
     }
 
-    fun postLoad() {
+    fun upVersion() {
         execute {
-            FileUtils.deleteFile(FileUtils.getPath(context.cacheDir, "Fonts"))
-            if (App.db.httpTTSDao().count == 0) {
-                DefaultData.defaultHttpTTS.let {
-                    App.db.httpTTSDao().insert(*it.toTypedArray())
-                }
+            if (LocalConfig.hasUpHttpTTS) {
+                DefaultData.importDefaultHttpTTS()
+            }
+            if (LocalConfig.hasUpTxtTocRule) {
+                DefaultData.importDefaultTocRules()
             }
         }
     }

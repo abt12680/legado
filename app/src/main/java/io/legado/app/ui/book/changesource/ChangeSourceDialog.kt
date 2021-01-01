@@ -1,25 +1,26 @@
 package io.legado.app.ui.book.changesource
 
 import android.os.Bundle
-import android.view.LayoutInflater
-import android.view.MenuItem
-import android.view.View
-import android.view.ViewGroup
+import android.view.*
 import androidx.appcompat.widget.SearchView
 import androidx.appcompat.widget.Toolbar
 import androidx.fragment.app.FragmentManager
-import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import io.legado.app.App
 import io.legado.app.R
 import io.legado.app.base.BaseDialogFragment
+import io.legado.app.constant.AppPattern
 import io.legado.app.constant.PreferKey
 import io.legado.app.data.entities.Book
 import io.legado.app.data.entities.SearchBook
+import io.legado.app.databinding.DialogChangeSourceBinding
+import io.legado.app.help.AppConfig
 import io.legado.app.lib.theme.primaryColor
+import io.legado.app.ui.book.source.manage.BookSourceActivity
 import io.legado.app.ui.widget.recycler.VerticalDivider
 import io.legado.app.utils.*
-import kotlinx.android.synthetic.main.dialog_change_source.*
+import io.legado.app.utils.viewbindingdelegate.viewBinding
 
 
 class ChangeSourceDialog : BaseDialogFragment(),
@@ -41,6 +42,8 @@ class ChangeSourceDialog : BaseDialogFragment(),
         }
     }
 
+    private val binding by viewBinding(DialogChangeSourceBinding::bind)
+    private val groups = linkedSetOf<String>()
     private var callBack: CallBack? = null
     private lateinit var viewModel: ChangeSourceViewModel
     lateinit var adapter: ChangeSourceAdapter
@@ -62,7 +65,7 @@ class ChangeSourceDialog : BaseDialogFragment(),
     }
 
     override fun onFragmentCreated(view: View, savedInstanceState: Bundle?) {
-        tool_bar.setBackgroundColor(primaryColor)
+        binding.toolBar.setBackgroundColor(primaryColor)
         viewModel.initData(arguments)
         showTitle()
         initMenu()
@@ -73,49 +76,49 @@ class ChangeSourceDialog : BaseDialogFragment(),
     }
 
     private fun showTitle() {
-        tool_bar.title = viewModel.name
-        tool_bar.subtitle = getString(R.string.author_show, viewModel.author)
+        binding.toolBar.title = viewModel.name
+        binding.toolBar.subtitle = getString(R.string.author_show, viewModel.author)
     }
 
     private fun initMenu() {
-        tool_bar.inflateMenu(R.menu.change_source)
-        tool_bar.menu.applyTint(requireContext())
-        tool_bar.setOnMenuItemClickListener(this)
-        tool_bar.menu.findItem(R.id.menu_load_toc)?.isChecked =
-            getPrefBoolean(PreferKey.changeSourceLoadToc)
-        tool_bar.menu.findItem(R.id.menu_load_info)?.isChecked =
-            getPrefBoolean(PreferKey.changeSourceLoadInfo)
+        binding.toolBar.inflateMenu(R.menu.change_source)
+        binding.toolBar.menu.applyTint(requireContext())
+        binding.toolBar.setOnMenuItemClickListener(this)
+        binding.toolBar.menu.findItem(R.id.menu_load_info)?.isChecked =
+            AppConfig.changeSourceLoadInfo
+        binding.toolBar.menu.findItem(R.id.menu_load_toc)?.isChecked = AppConfig.changeSourceLoadToc
+
     }
 
     private fun initRecyclerView() {
         adapter = ChangeSourceAdapter(requireContext(), this)
-        recycler_view.layoutManager = LinearLayoutManager(context)
-        recycler_view.addItemDecoration(VerticalDivider(requireContext()))
-        recycler_view.adapter = adapter
+        binding.recyclerView.layoutManager = LinearLayoutManager(context)
+        binding.recyclerView.addItemDecoration(VerticalDivider(requireContext()))
+        binding.recyclerView.adapter = adapter
         adapter.registerAdapterDataObserver(object : RecyclerView.AdapterDataObserver() {
             override fun onItemRangeInserted(positionStart: Int, itemCount: Int) {
                 if (positionStart == 0) {
-                    recycler_view.scrollToPosition(0)
+                    binding.recyclerView.scrollToPosition(0)
                 }
             }
 
             override fun onItemRangeMoved(fromPosition: Int, toPosition: Int, itemCount: Int) {
                 if (toPosition == 0) {
-                    recycler_view.scrollToPosition(0)
+                    binding.recyclerView.scrollToPosition(0)
                 }
             }
         })
     }
 
     private fun initSearchView() {
-        val searchView = tool_bar.menu.findItem(R.id.menu_screen).actionView as SearchView
+        val searchView = binding.toolBar.menu.findItem(R.id.menu_screen).actionView as SearchView
         searchView.setOnCloseListener {
             showTitle()
             false
         }
         searchView.setOnSearchClickListener {
-            tool_bar.title = ""
-            tool_bar.subtitle = ""
+            binding.toolBar.title = ""
+            binding.toolBar.subtitle = ""
         }
         searchView.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
             override fun onQueryTextSubmit(query: String?): Boolean {
@@ -132,23 +135,28 @@ class ChangeSourceDialog : BaseDialogFragment(),
 
     private fun initLiveData() {
         viewModel.searchStateData.observe(viewLifecycleOwner, {
-            refresh_progress_bar.isAutoLoading = it
+            binding.refreshProgressBar.isAutoLoading = it
             if (it) {
                 stopMenuItem?.setIcon(R.drawable.ic_stop_black_24dp)
             } else {
                 stopMenuItem?.setIcon(R.drawable.ic_refresh_black_24dp)
             }
-            tool_bar.menu.applyTint(requireContext())
+            binding.toolBar.menu.applyTint(requireContext())
         })
         viewModel.searchBooksLiveData.observe(viewLifecycleOwner, {
-            val diffResult = DiffUtil.calculateDiff(DiffCallBack(adapter.getItems(), it))
             adapter.setItems(it)
-            diffResult.dispatchUpdatesTo(adapter)
+        })
+        App.db.bookSourceDao.liveGroupEnabled().observe(this, {
+            groups.clear()
+            it.map { group ->
+                groups.addAll(group.splitNotBlank(AppPattern.splitGroupRegex))
+            }
+            upGroupMenu()
         })
     }
 
     private val stopMenuItem: MenuItem?
-        get() = tool_bar.menu.findItem(R.id.menu_stop)
+        get() = binding.toolBar.menu.findItem(R.id.menu_stop)
 
     override fun onMenuItemClick(item: MenuItem?): Boolean {
         when (item?.itemId) {
@@ -161,6 +169,19 @@ class ChangeSourceDialog : BaseDialogFragment(),
                 item.isChecked = !item.isChecked
             }
             R.id.menu_stop -> viewModel.stopSearch()
+            R.id.menu_source_manage -> startActivity<BookSourceActivity>()
+            else -> if (item?.groupId == R.id.source_group) {
+                if (!item.isChecked) {
+                    item.isChecked = true
+                    if (item.title.toString() == getString(R.string.all_source)) {
+                        putPrefString("searchGroup", "")
+                    } else {
+                        putPrefString("searchGroup", item.title.toString())
+                    }
+                    viewModel.stopSearch()
+                    viewModel.loadDbSearchBook()
+                }
+            }
         }
         return false
     }
@@ -177,6 +198,31 @@ class ChangeSourceDialog : BaseDialogFragment(),
 
     override fun disableSource(searchBook: SearchBook) {
         viewModel.disableSource(searchBook)
+    }
+
+    /**
+     * 更新分组菜单
+     */
+    private fun upGroupMenu() {
+        val menu: Menu = binding.toolBar.menu
+        val selectedGroup = getPrefString("searchGroup")
+        menu.removeGroup(R.id.source_group)
+        val allItem = menu.add(R.id.source_group, Menu.NONE, Menu.NONE, R.string.all_source)
+        var hasSelectedGroup = false
+        groups.sortedWith { o1, o2 ->
+            o1.cnCompare(o2)
+        }.forEach { group ->
+            menu.add(R.id.source_group, Menu.NONE, Menu.NONE, group)?.let {
+                if (group == selectedGroup) {
+                    it.isChecked = true
+                    hasSelectedGroup = true
+                }
+            }
+        }
+        menu.setGroupCheckable(R.id.source_group, true, true)
+        if (!hasSelectedGroup) {
+            allItem.isChecked = true
+        }
     }
 
     interface CallBack {

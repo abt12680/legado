@@ -2,6 +2,8 @@ package io.legado.app.ui.book.changecover
 
 import android.app.Application
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import androidx.lifecycle.MutableLiveData
 import io.legado.app.App
 import io.legado.app.base.BaseViewModel
@@ -14,19 +16,23 @@ import io.legado.app.model.webBook.WebBook
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExecutorCoroutineDispatcher
 import kotlinx.coroutines.asCoroutineDispatcher
+import java.util.concurrent.CopyOnWriteArraySet
 import java.util.concurrent.Executors
 import kotlin.math.min
 
 class ChangeCoverViewModel(application: Application) : BaseViewModel(application) {
     private val threadCount = AppConfig.threadCount
     private var searchPool: ExecutorCoroutineDispatcher? = null
+    val handler = Handler(Looper.getMainLooper())
     var name: String = ""
     var author: String = ""
     private var tasks = CompositeCoroutine()
     private var bookSourceList = arrayListOf<BookSource>()
     val searchStateData = MutableLiveData<Boolean>()
     val searchBooksLiveData = MutableLiveData<List<SearchBook>>()
-    private val searchBooks = ArrayList<SearchBook>()
+    private val searchBooks = CopyOnWriteArraySet<SearchBook>()
+    private val sendRunnable = Runnable { upAdapter() }
+    private var postTime = 0L
 
     @Volatile
     private var searchIndex = -1
@@ -49,22 +55,33 @@ class ChangeCoverViewModel(application: Application) : BaseViewModel(application
 
     fun loadDbSearchBook() {
         execute {
-            App.db.searchBookDao().getEnableHasCover(name, author).let {
+            App.db.searchBookDao.getEnableHasCover(name, author).let {
                 searchBooks.addAll(it)
+                searchBooksLiveData.postValue(searchBooks.toList())
                 if (it.size <= 1) {
-                    searchBooksLiveData.postValue(searchBooks)
                     startSearch()
-                } else {
-                    searchBooksLiveData.postValue(searchBooks)
                 }
             }
+        }
+    }
+
+    @Synchronized
+    private fun upAdapter() {
+        if (System.currentTimeMillis() >= postTime + 500) {
+            handler.removeCallbacks(sendRunnable)
+            postTime = System.currentTimeMillis()
+            val books = searchBooks.toList()
+            searchBooksLiveData.postValue(books.sortedBy { it.originOrder })
+        } else {
+            handler.removeCallbacks(sendRunnable)
+            handler.postDelayed(sendRunnable, 500)
         }
     }
 
     private fun startSearch() {
         execute {
             bookSourceList.clear()
-            bookSourceList.addAll(App.db.bookSourceDao().allEnabled)
+            bookSourceList.addAll(App.db.bookSourceDao.allEnabled)
             searchStateData.postValue(true)
             initSearchPool()
             for (i in 0 until threadCount) {
@@ -80,9 +97,8 @@ class ChangeCoverViewModel(application: Application) : BaseViewModel(application
             }
             searchIndex++
             val source = bookSourceList[searchIndex]
-            val variableBook = SearchBook(origin = source.bookSourceUrl)
             val task = WebBook(source)
-                .searchBook(name, scope = this, context = searchPool!!, variableBook = variableBook)
+                .searchBook(name, scope = this, context = searchPool!!)
                 .timeout(60000L)
                 .onSuccess(Dispatchers.IO) {
                     if (it.isNotEmpty()) {
@@ -90,10 +106,10 @@ class ChangeCoverViewModel(application: Application) : BaseViewModel(application
                         if (searchBook.name == name && searchBook.author == author
                             && !searchBook.coverUrl.isNullOrEmpty()
                         ) {
-                            App.db.searchBookDao().insert(searchBook)
+                            App.db.searchBookDao.insert(searchBook)
                             if (!searchBooks.contains(searchBook)) {
                                 searchBooks.add(searchBook)
-                                searchBooksLiveData.postValue(searchBooks)
+                                upAdapter()
                             }
                         }
                     }
@@ -121,6 +137,7 @@ class ChangeCoverViewModel(application: Application) : BaseViewModel(application
             startSearch()
         } else {
             tasks.clear()
+            searchStateData.postValue(false)
         }
     }
 

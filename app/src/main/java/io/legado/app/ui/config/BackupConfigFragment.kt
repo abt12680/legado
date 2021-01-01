@@ -4,6 +4,9 @@ import android.content.Intent
 import android.content.SharedPreferences
 import android.os.Bundle
 import android.text.InputType
+import android.view.Menu
+import android.view.MenuInflater
+import android.view.MenuItem
 import android.view.View
 import androidx.preference.EditTextPreference
 import androidx.preference.ListPreference
@@ -11,17 +14,19 @@ import androidx.preference.Preference
 import io.legado.app.R
 import io.legado.app.base.BasePreferenceFragment
 import io.legado.app.constant.PreferKey
+import io.legado.app.help.LocalConfig
 import io.legado.app.help.storage.Restore
 import io.legado.app.lib.dialogs.alert
 import io.legado.app.lib.theme.ATH
 import io.legado.app.lib.theme.accentColor
-import io.legado.app.ui.filechooser.FileChooserDialog
+import io.legado.app.ui.filepicker.FilePickerDialog
+import io.legado.app.ui.widget.dialog.TextDialog
 import io.legado.app.utils.applyTint
 import io.legado.app.utils.getPrefString
 
 class BackupConfigFragment : BasePreferenceFragment(),
     SharedPreferences.OnSharedPreferenceChangeListener,
-    FileChooserDialog.CallBack {
+    FilePickerDialog.CallBack {
 
     override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
         addPreferencesFromResource(R.xml.pref_config_backup)
@@ -55,6 +60,28 @@ class BackupConfigFragment : BasePreferenceFragment(),
         super.onViewCreated(view, savedInstanceState)
         preferenceManager.sharedPreferences.registerOnSharedPreferenceChangeListener(this)
         ATH.applyEdgeEffectColor(listView)
+        setHasOptionsMenu(true)
+        if (!LocalConfig.backupHelpVersionIsLast) {
+            showHelp()
+        }
+    }
+
+    override fun onCreateOptionsMenu(menu: Menu, inflater: MenuInflater) {
+        super.onCreateOptionsMenu(menu, inflater)
+        inflater.inflate(R.menu.backup_restore, menu)
+        menu.applyTint(requireContext())
+    }
+
+    override fun onOptionsItemSelected(item: MenuItem): Boolean {
+        when (item.itemId) {
+            R.id.menu_help -> showHelp()
+        }
+        return super.onOptionsItemSelected(item)
+    }
+
+    private fun showHelp() {
+        val text = String(requireContext().assets.open("help/webDavHelp.md").readBytes())
+        TextDialog.show(childFragmentManager, text, TextDialog.MD)
     }
 
     override fun onDestroy() {
@@ -126,15 +153,10 @@ class BackupConfigFragment : BasePreferenceFragment(),
             multiChoiceItems(Restore.ignoreTitle, checkedItems) { _, which, isChecked ->
                 Restore.ignoreConfig[Restore.ignoreKeys[which]] = isChecked
             }
-        }.show()
-            .applyTint()
-            .setOnDismissListener {
+            onDismiss {
                 Restore.saveIgnoreConfig()
             }
-    }
-
-    override fun onFilePicked(requestCode: Int, currentPath: String) {
-        BackupRestoreUi.onFilePicked(requestCode, currentPath)
+        }.show()
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {

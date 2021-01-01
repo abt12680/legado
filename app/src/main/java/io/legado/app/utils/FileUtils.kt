@@ -4,7 +4,7 @@ import android.os.Environment
 import android.webkit.MimeTypeMap
 import androidx.annotation.IntDef
 import io.legado.app.App
-import io.legado.app.ui.filechooser.utils.ConvertUtils
+import io.legado.app.ui.filepicker.utils.ConvertUtils
 import java.io.*
 import java.nio.charset.Charset
 import java.text.SimpleDateFormat
@@ -710,7 +710,7 @@ object FileUtils {
                     val s1 = f1.name
                     val s2 = f2.name
                     if (caseSensitive) {
-                        s1.compareTo(s2)
+                        s1.cnCompare(s2)
                     } else {
                         s1.compareTo(s2, ignoreCase = true)
                     }

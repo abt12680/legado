@@ -47,7 +47,7 @@
     <string name="recent_reading">最近阅读</string>
     <string name="last_read">最后阅读</string>
     <string name="update_log">更新日志</string>
-    <string name="bookshelf_empty">书架还空着，先去搜索书籍或从发现里添加吧！\n如果初次使用请先关注公众号[开源阅读]获取书源！</string>
+    <string name="bookshelf_empty">书架还空着，先去搜索书籍或从发现里添加吧！\n初次使用请关注公众号[开源阅读]获取书源和教程！</string>
     <string name="action_search">搜索</string>
     <string name="action_download">下载</string>
     <string name="layout_list">列表</string>
@@ -152,6 +152,7 @@
     <string name="set_timer">定时</string>
     <string name="read_aloud_pause">朗读暂停</string>
     <string name="read_aloud_timer">正在朗读(还剩%d分钟)</string>
+    <string name="playing_timer">正在播放(还剩%d分钟)</string>
     <string name="ps_hide_navigation_bar">阅读界面隐藏虚拟按键</string>
     <string name="pt_hide_navigation_bar">隐藏导航栏</string>
     <string name="re_navigation_bar_color">导航栏颜色</string>
@@ -199,8 +200,8 @@
     <string name="book">书</string>
     <string name="volume_key_page">音量键翻页</string>
     <string name="click_turn_page">点击翻页</string>
-    <string name="click_all_next_page">点击总是翻下一页</string>
     <string name="page_anim">翻页动画</string>
+    <string name="book_page_anim">翻页动画(本书)</string>
     <string name="keep_light">屏幕超时</string>
     <string name="back">返回</string>
     <string name="menu">菜单</string>
@@ -350,7 +351,7 @@
     <string name="sort">排序</string>
     <string name="sort_auto">智能排序</string>
     <string name="sort_manual">手动排序</string>
-    <string name="sort_pin_yin">拼音排序</string>
+    <string name="sort_name">名称排序</string>
     <string name="go_to_top">滚动到顶部</string>
     <string name="go_to_bottom">滚动到底部</string>
     <string name="read_y">已读: %s</string>
@@ -363,8 +364,8 @@
     <string name="finish_book">完结书籍</string>
     <string name="local_book">本地书籍</string>
     <string name="status_bar_immersion">状态栏颜色透明</string>
-    <string name="navigation_bar_color_change">导航栏变色</string>
-    <string name="navigation_bar_color_change_s">导航栏根据夜间模式变化</string>
+    <string name="imm_navigation_bar">沉浸式导航栏</string>
+    <string name="imm_navigation_bar_s">导航栏颜色透明</string>
     <string name="add_to_shelf">放入书架</string>
     <string name="continue_read">继续阅读</string>
     <string name="cover_path">封面地址</string>
@@ -409,6 +410,7 @@
     <string name="book_url_pattern">书籍URL正则(bookUrlPattern)</string>
     <string name="rule_book_info_init">预处理规则(bookInfoInit)</string>
     <string name="rule_toc_url">目录URL规则(tocUrl)</string>
+    <string name="rule_can_re_name">允许修改书名作者(canReName)</string>
     <string name="rule_next_toc_url">目录下一页规则(nextTocUrl)</string>
     <string name="rule_chapter_list">目录列表规则(chapterList)</string>
     <string name="rule_chapter_name">章节名称规则(ChapterName)</string>
@@ -417,7 +419,9 @@
     <string name="rule_update_time">更新时间(ChapterInfo)</string>
     <string name="rule_book_content">正文规则(content)</string>
     <string name="rule_next_content">正文下一页URL规则(nextContentUrl)</string>
-    <string name="rule_web_js">webJs</string>
+    <string name="rule_web_js">WebViewJs(webJs)</string>
+    <string name="rule_image_style">图片样式(imageStyle)</string>
+    <string name="rule_replace_regex">替换规则(replaceRegex)</string>
     <string name="rule_source_regex">资源正则(sourceRegex)</string>
 
     <string name="source_icon">图标(sourceIcon)</string>
@@ -452,7 +456,7 @@
     <string name="source_http_header">请求头(header)</string>
     <string name="debug_source">调试源</string>
     <string name="import_by_qr_code">二维码导入</string>
-    <string name="share_selected_source">分享选中书源</string>
+    <string name="share_selected_source">分享选中源</string>
     <string name="scan_qr_code">扫描二维码</string>
     <string name="click_on_selected_show_menu">选中时点击可弹出菜单</string>
     <string name="theme">主题</string>
@@ -480,6 +484,7 @@
     <string name="no">否</string>
     <string name="sure">确认</string>
     <string name="sure_del">是否确认删除？</string>
+    <string name="sure_del_any">是否确认删除 %s？</string>
     <string name="sure_del_all_book">是否删除全部书籍？</string>
     <string name="sure_del_download_book">是否同时删除已下载的书籍目录？</string>
     <string name="qr_per">扫描二维码需相机权限</string>
@@ -490,7 +495,7 @@
     <string name="no_book_name">未获取到书名</string>
     <string name="input_replace_url">输入替换规则网址</string>
     <string name="get_book_list_success">搜索列表获取成功%d</string>
-    <string name="non_null_source_name_url">书源名称和URL不能为空</string>
+    <string name="non_null_name_url">名称和URL不能为空</string>
     <string name="gallery">图库</string>
     <string name="get_ali_pay_hb">领支付宝红包</string>
     <string name="non_update_url">没有获取到更新地址</string>
@@ -599,8 +604,6 @@
     <string name="change_cover_source">封面换源</string>
     <string name="select_local_image">选择本地图片</string>
     <string name="book_type">类型:</string>
-    <string name="book_type_text">文本</string>
-    <string name="book_type_audio">音频</string>
     <string name="to_backstage">后台</string>
     <string name="importing">正在导入</string>
     <string name="exporting">正在导出</string>
@@ -625,7 +628,8 @@
     <string name="service_start">正在启动服务\n具体信息查看通知栏</string>
     <string name="default_path">默认路径</string>
     <string name="sys_folder_picker">系统文件夹选择器</string>
-    <string name="app_folder_picker">自带选择器\n(Android10以上因权限限制可能无法使用)</string>
+    <string name="app_folder_picker">自带文件夹选择器</string>
+    <string name="app_file_picker">自带文件选择器</string>
     <string name="a10_permission_toast">Android10以上因权限限制可能无法读写文件</string>
     <string name="add_to_text_context_menu_s">长按文字在操作菜单中显示阅读·搜索</string>
     <string name="add_to_text_context_menu_t">文字操作显示搜索</string>
@@ -687,8 +691,6 @@
     <string name="click_to_apply">点击加入</string>
     <string name="middle">中</string>
     <string name="information">信息</string>
-    <string name="hideHeader">隐藏页眉</string>
-    <string name="hideFooter">隐藏页脚</string>
     <string name="switchLayout">切换布局</string>
     <string name="text_font_weight_converter">文章字重切换</string>
 
@@ -734,8 +736,6 @@
     <string name="restore_ignore">恢复忽略列表</string>
     <string name="restore_ignore_summary">恢复时忽略一些内容不恢复,方便不同手机配置不同</string>
     <string name="read_config">阅读界面设置</string>
-    <string name="rule_image_style">图片样式(imageStyle)</string>
-    <string name="rule_replace_regex">替换规则(replaceRegex)</string>
     <string name="group_name">分组名称</string>
     <string name="note_content">备注内容</string>
     <string name="replace_enable_default_t">默认启用替换净化</string>
@@ -778,5 +778,28 @@
     <string name="auto_clear_expired_summary">超过一天的搜索数据</string>
     <string name="re_segment">重新分段</string>
     <string name="style_name">样式名称:</string>
+    <string name="empty_msg_import_book">点击右上角文件夹图标,选择文件夹</string>
+    <string name="scan_folder">智能扫描</string>
+    <string name="copy_url">拷贝URL</string>
+    <string name="no_book">没有书籍</string>
+    <string name="keep_original_name">保留原名</string>
+    <string name="click_regional_config">点击区域设置</string>
+    <string name="colse">关闭</string>
+    <string name="next_page">下一页</string>
+    <string name="prev_page">上一页</string>
+    <string name="non_action">无操作</string>
+    <string name="body_title">正文标题</string>
+    <string name="show_hide">显示/隐藏</string>
+    <string name="header_footer">页眉<![CDATA[&]]>页脚</string>
+    <string name="rule_subscription">规则订阅</string>
+    <string name="rule_sub_empty_msg">添加大佬们提供的规则导入地址\n添加后点击可导入规则</string>
+    <string name="get_book_progress">拉取云端进度</string>
+    <string name="current_progress_exceeds_cloud">当前进度超过云端进度,是否同步?</string>
+    <string name="sync_book_progress_t">同步阅读进度</string>
+    <string name="sync_book_progress_s">进入退出阅读界面时同步阅读进度</string>
+    <string name="create_bookmark_error">创建书签失败</string>
+    <string name="single_url">单URL</string>
+    <string name="export_bookshelf">导出书单</string>
+    <string name="import_bookshelf">导入书单</string>
 
 </resources>

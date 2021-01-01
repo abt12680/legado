@@ -21,7 +21,6 @@ class SearchBookModel(private val scope: CoroutineScope, private val callBack: C
     private var searchKey: String = ""
     private var tasks = CompositeCoroutine()
     private var bookSourceList = arrayListOf<BookSource>()
-    private val variableBookMap = hashMapOf<String, SearchBook>()
 
     @Volatile
     private var searchIndex = -1
@@ -48,9 +47,9 @@ class SearchBookModel(private val scope: CoroutineScope, private val callBack: C
             val searchGroup = App.INSTANCE.getPrefString("searchGroup") ?: ""
             bookSourceList.clear()
             if (searchGroup.isBlank()) {
-                bookSourceList.addAll(App.db.bookSourceDao().allEnabled)
+                bookSourceList.addAll(App.db.bookSourceDao.allEnabled)
             } else {
-                bookSourceList.addAll(App.db.bookSourceDao().getEnabledByGroup(searchGroup))
+                bookSourceList.addAll(App.db.bookSourceDao.getEnabledByGroup(searchGroup))
             }
         } else {
             searchPage++
@@ -61,15 +60,6 @@ class SearchBookModel(private val scope: CoroutineScope, private val callBack: C
         }
     }
 
-    private fun getVariableBook(sourceUrl: String): SearchBook {
-        var vBook = variableBookMap[sourceUrl]
-        if (vBook == null) {
-            vBook = SearchBook()
-            variableBookMap[sourceUrl] = vBook
-        }
-        return vBook
-    }
-
     private fun search(searchId: Long) {
         synchronized(this) {
             if (searchIndex >= bookSourceList.lastIndex) {
@@ -77,11 +67,9 @@ class SearchBookModel(private val scope: CoroutineScope, private val callBack: C
             }
             searchIndex++
             val source = bookSourceList[searchIndex]
-            val variableBook = getVariableBook(source.bookSourceUrl)
             val task = WebBook(source).searchBook(
                 searchKey,
                 searchPage,
-                variableBook,
                 scope = scope,
                 context = searchPool!!
             ).timeout(30000L)

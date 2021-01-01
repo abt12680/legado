@@ -61,7 +61,7 @@ class ReadAloudConfigDialog : DialogFragment() {
         private val speakEngineSummary: String
             get() {
                 val eid = App.INSTANCE.getPrefLong(PreferKey.speakEngine)
-                val ht = App.db.httpTTSDao().get(eid)
+                val ht = App.db.httpTTSDao.get(eid)
                 return ht?.name ?: getString(R.string.local_tts)
             }
 
@@ -117,7 +117,6 @@ class ReadAloudConfigDialog : DialogFragment() {
             when (preference) {
                 is ListPreference -> {
                     val index = preference.findIndexOfValue(value)
-                    // Set the summary to reflect the new value.
                     preference.summary = if (index >= 0) preference.entries[index] else null
                 }
                 else -> {
