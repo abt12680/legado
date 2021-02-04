@@ -3,8 +3,8 @@ package io.legado.app.ui.rss.article
 import android.app.Application
 import android.os.Bundle
 import androidx.lifecycle.MutableLiveData
-import io.legado.app.App
 import io.legado.app.base.BaseViewModel
+import io.legado.app.data.appDb
 import io.legado.app.data.entities.RssArticle
 import io.legado.app.data.entities.RssSource
 import io.legado.app.model.rss.Rss
@@ -30,16 +30,16 @@ class RssArticlesViewModel(application: Application) : BaseViewModel(application
     fun loadContent(rssSource: RssSource) {
         isLoading = true
         page = 1
-        Rss.getArticles(sortName, sortUrl, rssSource, page)
+        Rss.getArticles(this, sortName, sortUrl, rssSource, page)
             .onSuccess(Dispatchers.IO) {
                 nextPageUrl = it.nextPageUrl
                 it.articles.let { list ->
                     list.forEach { rssArticle ->
                         rssArticle.order = order--
                     }
-                    App.db.rssArticleDao.insert(*list.toTypedArray())
+                    appDb.rssArticleDao.insert(*list.toTypedArray())
                     if (!rssSource.ruleNextPage.isNullOrEmpty()) {
-                        App.db.rssArticleDao.clearOld(rssSource.sourceUrl, sortName, order)
+                        appDb.rssArticleDao.clearOld(rssSource.sourceUrl, sortName, order)
                         loadFinally.postValue(true)
                     } else {
                         withContext(Dispatchers.Main) {
@@ -51,7 +51,7 @@ class RssArticlesViewModel(application: Application) : BaseViewModel(application
             }.onError {
                 loadFinally.postValue(false)
                 it.printStackTrace()
-                toast(it.localizedMessage)
+                toastOnUi(it.localizedMessage)
             }
     }
 
@@ -60,7 +60,7 @@ class RssArticlesViewModel(application: Application) : BaseViewModel(application
         page++
         val pageUrl = nextPageUrl
         if (!pageUrl.isNullOrEmpty()) {
-            Rss.getArticles(sortName, pageUrl, rssSource, page)
+            Rss.getArticles(this, sortName, pageUrl, rssSource, page)
                 .onSuccess(Dispatchers.IO) {
                     nextPageUrl = it.nextPageUrl
                     loadMoreSuccess(it.articles)
@@ -81,7 +81,7 @@ class RssArticlesViewModel(application: Application) : BaseViewModel(application
                 return@let
             }
             val firstArticle = list.first()
-            val dbArticle = App.db.rssArticleDao
+            val dbArticle = appDb.rssArticleDao
                 .get(firstArticle.origin, firstArticle.link)
             if (dbArticle != null) {
                 loadFinally.postValue(false)
@@ -89,7 +89,7 @@ class RssArticlesViewModel(application: Application) : BaseViewModel(application
                 list.forEach { rssArticle ->
                     rssArticle.order = order--
                 }
-                App.db.rssArticleDao.insert(*list.toTypedArray())
+                appDb.rssArticleDao.insert(*list.toTypedArray())
             }
         }
         isLoading = false

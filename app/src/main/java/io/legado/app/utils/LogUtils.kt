@@ -1,11 +1,10 @@
 package io.legado.app.utils
 
 import android.annotation.SuppressLint
-import io.legado.app.App
+import splitties.init.appCtx
 import java.text.SimpleDateFormat
 import java.util.*
 import java.util.logging.*
-import java.util.logging.Formatter
 
 @Suppress("unused")
 object LogUtils {
@@ -30,26 +29,26 @@ object LogUtils {
     }
 
     private val fileHandler by lazy {
-        val root = App.INSTANCE.externalCacheDir ?: return@lazy null
+        val root = appCtx.externalCacheDir ?: return@lazy null
         val logFolder = FileUtils.createFolderIfNotExist(root, "logs")
         val logPath = FileUtils.getPath(root = logFolder, "appLog")
-        FileHandler(logPath, 10240, 10).apply {
-            formatter = object : Formatter() {
-                override fun format(record: LogRecord): String {
-                    // 设置文件输出格式
-                    return (getCurrentDateStr(TIME_PATTERN) + ": " + record.message + "\n")
-                }
-            }
-            level = if (App.INSTANCE.getPrefBoolean("recordLog")) {
-                Level.INFO
-            } else {
-                Level.OFF
+        val fileHandler = FileHandler(logPath, 10240, 10)
+        fileHandler.formatter = object : java.util.logging.Formatter() {
+            override fun format(record: LogRecord): String {
+                // 设置文件输出格式
+                return (getCurrentDateStr(TIME_PATTERN) + ": " + record.message + "\n")
             }
         }
+        fileHandler.level = if (appCtx.getPrefBoolean("recordLog")) {
+            Level.INFO
+        } else {
+            Level.OFF
+        }
+        return@lazy fileHandler
     }
 
     fun upLevel() {
-        fileHandler?.level = if (App.INSTANCE.getPrefBoolean("recordLog")) {
+        fileHandler?.level = if (appCtx.getPrefBoolean("recordLog")) {
             Level.INFO
         } else {
             Level.OFF

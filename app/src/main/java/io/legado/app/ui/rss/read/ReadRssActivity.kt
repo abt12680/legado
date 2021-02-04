@@ -10,6 +10,7 @@ import android.os.Bundle
 import android.os.Environment
 import android.view.*
 import android.webkit.*
+import androidx.activity.viewModels
 import androidx.core.view.size
 import io.legado.app.R
 import io.legado.app.base.VMBaseActivity
@@ -25,9 +26,8 @@ import io.legado.app.ui.filepicker.FilePickerDialog
 import io.legado.app.utils.*
 import kotlinx.coroutines.launch
 import org.apache.commons.text.StringEscapeUtils
-import org.jetbrains.anko.downloadManager
-import org.jetbrains.anko.share
 import org.jsoup.Jsoup
+import splitties.systemservices.downloadManager
 
 
 class ReadRssActivity : VMBaseActivity<ActivityRssReadBinding, ReadRssViewModel>(false),
@@ -35,7 +35,7 @@ class ReadRssActivity : VMBaseActivity<ActivityRssReadBinding, ReadRssViewModel>
     ReadRssViewModel.CallBack {
 
     override val viewModel: ReadRssViewModel
-        get() = getViewModel(ReadRssViewModel::class.java)
+            by viewModels()
     private val savePathRequestCode = 132
     private val imagePathKey = ""
     private var starMenuItem: MenuItem? = null

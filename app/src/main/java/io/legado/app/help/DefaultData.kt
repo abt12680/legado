@@ -1,10 +1,12 @@
 package io.legado.app.help
 
-import io.legado.app.App
+import io.legado.app.data.appDb
 import io.legado.app.data.entities.HttpTTS
+import io.legado.app.data.entities.RssSource
 import io.legado.app.data.entities.TxtTocRule
 import io.legado.app.utils.GSON
 import io.legado.app.utils.fromJsonArray
+import splitties.init.appCtx
 import java.io.File
 
 object DefaultData {
@@ -15,7 +17,7 @@ object DefaultData {
     val httpTTS by lazy {
         val json =
             String(
-                App.INSTANCE.assets.open("defaultData${File.separator}$httpTtsFileName")
+                appCtx.assets.open("defaultData${File.separator}$httpTtsFileName")
                     .readBytes()
             )
         GSON.fromJsonArray<HttpTTS>(json)!!
@@ -23,7 +25,7 @@ object DefaultData {
 
     val readConfigs by lazy {
         val json = String(
-            App.INSTANCE.assets.open("defaultData${File.separator}${ReadBookConfig.configFileName}")
+            appCtx.assets.open("defaultData${File.separator}${ReadBookConfig.configFileName}")
                 .readBytes()
         )
         GSON.fromJsonArray<ReadBookConfig.Config>(json)!!
@@ -31,7 +33,7 @@ object DefaultData {
 
     val txtTocRules by lazy {
         val json = String(
-            App.INSTANCE.assets.open("defaultData${File.separator}$txtTocRuleFileName")
+            appCtx.assets.open("defaultData${File.separator}$txtTocRuleFileName")
                 .readBytes()
         )
         GSON.fromJsonArray<TxtTocRule>(json)!!
@@ -39,23 +41,31 @@ object DefaultData {
 
     val themeConfigs by lazy {
         val json = String(
-            App.INSTANCE.assets.open("defaultData${File.separator}${ThemeConfig.configFileName}")
+            appCtx.assets.open("defaultData${File.separator}${ThemeConfig.configFileName}")
                 .readBytes()
         )
         GSON.fromJsonArray<ThemeConfig.Config>(json)!!
     }
 
+    val rssSources by lazy {
+        val json = String(
+            appCtx.assets.open("defaultData${File.separator}rssSources.json")
+                .readBytes()
+        )
+        GSON.fromJsonArray<RssSource>(json)!!
+    }
+
     fun importDefaultHttpTTS() {
-        App.db.httpTTSDao.deleteDefault()
-        httpTTS.let {
-            App.db.httpTTSDao.insert(*it.toTypedArray())
-        }
+        appDb.httpTTSDao.deleteDefault()
+        appDb.httpTTSDao.insert(*httpTTS.toTypedArray())
     }
 
     fun importDefaultTocRules() {
-        App.db.txtTocRule.deleteDefault()
-        txtTocRules.let {
-            App.db.txtTocRule.insert(*it.toTypedArray())
-        }
+        appDb.txtTocRule.deleteDefault()
+        appDb.txtTocRule.insert(*txtTocRules.toTypedArray())
+    }
+
+    fun importDefaultRssSources() {
+        appDb.rssSourceDao.insert(*rssSources.toTypedArray())
     }
 }
