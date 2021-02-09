@@ -3,6 +3,7 @@ package io.legado.app.service
 import android.app.PendingIntent
 import android.content.Intent
 import android.media.MediaPlayer
+
 import io.legado.app.constant.EventBus
 import io.legado.app.help.AppConfig
 import io.legado.app.help.IntentHelp
@@ -26,7 +27,7 @@ class HttpReadAloudService : BaseReadAloudService(),
         MediaPlayer.OnErrorListener,
         MediaPlayer.OnCompletionListener {
 
-    private val mediaPlayer = MediaPlayer()
+    private val player by lazy { MediaPlayer() }
     private lateinit var ttsFolder: String
     private var task: Coroutine<*>? = null
     private var playingIndex = -1
@@ -34,9 +35,9 @@ class HttpReadAloudService : BaseReadAloudService(),
     override fun onCreate() {
         super.onCreate()
         ttsFolder = externalCacheDir!!.absolutePath + File.separator + "httpTTS"
-        mediaPlayer.setOnErrorListener(this)
-        mediaPlayer.setOnPreparedListener(this)
-        mediaPlayer.setOnCompletionListener(this)
+        player.setOnErrorListener(this)
+        player.setOnPreparedListener(this)
+        player.setOnCompletionListener(this)
     }
 
     override fun onTaskRemoved(rootIntent: Intent?) {
@@ -47,11 +48,11 @@ class HttpReadAloudService : BaseReadAloudService(),
     override fun onDestroy() {
         super.onDestroy()
         task?.cancel()
-        mediaPlayer.release()
+        player.release()
     }
 
     override fun newReadAloud(dataKey: String?, play: Boolean) {
-        mediaPlayer.reset()
+        player.reset()
         playingIndex = -1
         super.newReadAloud(dataKey, play)
     }
@@ -142,9 +143,9 @@ class HttpReadAloudService : BaseReadAloudService(),
     private fun playAudio(fd: FileDescriptor) {
         if (playingIndex != nowSpeak && requestFocus()) {
             try {
-                mediaPlayer.reset()
-                mediaPlayer.setDataSource(fd)
-                mediaPlayer.prepareAsync()
+                player.reset()
+                player.setDataSource(fd)
+                player.prepareAsync()
                 playingIndex = nowSpeak
                 postEvent(EventBus.TTS_PROGRESS, readAloudNumber + 1)
             } catch (e: Exception) {
@@ -199,7 +200,7 @@ class HttpReadAloudService : BaseReadAloudService(),
 
     override fun pauseReadAloud(pause: Boolean) {
         super.pauseReadAloud(pause)
-        mediaPlayer.pause()
+        player.pause()
     }
 
     override fun resumeReadAloud() {
@@ -207,7 +208,7 @@ class HttpReadAloudService : BaseReadAloudService(),
         if (playingIndex == -1) {
             play()
         } else {
-            mediaPlayer.start()
+            player.start()
         }
     }
 
@@ -216,7 +217,7 @@ class HttpReadAloudService : BaseReadAloudService(),
      */
     override fun upSpeechRate(reset: Boolean) {
         task?.cancel()
-        mediaPlayer.stop()
+        player.stop()
         playingIndex = -1
         downloadAudio()
     }
@@ -226,7 +227,7 @@ class HttpReadAloudService : BaseReadAloudService(),
      */
     override fun prevP() {
         if (nowSpeak > 0) {
-            mediaPlayer.stop()
+            player.stop()
             nowSpeak--
             readAloudNumber -= contentList[nowSpeak].length.minus(1)
             play()
@@ -238,7 +239,7 @@ class HttpReadAloudService : BaseReadAloudService(),
      */
     override fun nextP() {
         if (nowSpeak < contentList.size - 1) {
-            mediaPlayer.stop()
+            player.stop()
             readAloudNumber += contentList[nowSpeak].length.plus(1)
             nowSpeak++
             play()

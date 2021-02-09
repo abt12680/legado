@@ -36,9 +36,7 @@ import io.legado.app.utils.visible
 class ImportRssSourceDialog : BaseDialogFragment(), Toolbar.OnMenuItemClickListener {
 
     private val binding by viewBinding(DialogRecyclerViewBinding::bind)
-
-    val viewModel: ImportRssSourceViewModel
-            by activityViewModels()
+    val viewModel: ImportRssSourceViewModel by activityViewModels()
     lateinit var adapter: SourcesAdapter
 
     override fun onStart() {
@@ -74,6 +72,34 @@ class ImportRssSourceDialog : BaseDialogFragment(), Toolbar.OnMenuItemClickListe
                 dismiss()
             }
         }
+        upSelectText()
+        binding.tvFooterLeft.visible()
+        binding.tvFooterLeft.setOnClickListener {
+            val selectAll = viewModel.isSelectAll()
+            viewModel.selectStatus.forEachIndexed { index, b ->
+                if (b != !selectAll) {
+                    viewModel.selectStatus[index] = !selectAll
+                }
+            }
+            adapter.notifyDataSetChanged()
+            upSelectText()
+        }
+    }
+
+    private fun upSelectText() {
+        if (viewModel.isSelectAll()) {
+            binding.tvFooterLeft.text = getString(
+                R.string.select_cancel_count,
+                viewModel.selectCount(),
+                viewModel.allSources.size
+            )
+        } else {
+            binding.tvFooterLeft.text = getString(
+                R.string.select_all_count,
+                viewModel.selectCount(),
+                viewModel.allSources.size
+            )
+        }
     }
 
     private fun initMenu() {
@@ -107,22 +133,6 @@ class ImportRssSourceDialog : BaseDialogFragment(), Toolbar.OnMenuItemClickListe
                     }
                     noButton()
                 }.show()
-            }
-            R.id.menu_select_all -> {
-                viewModel.selectStatus.forEachIndexed { index, b ->
-                    if (!b) {
-                        viewModel.selectStatus[index] = true
-                    }
-                }
-                adapter.notifyDataSetChanged()
-            }
-            R.id.menu_un_select_all -> {
-                viewModel.selectStatus.forEachIndexed { index, b ->
-                    if (b) {
-                        viewModel.selectStatus[index] = false
-                    }
-                }
-                adapter.notifyDataSetChanged()
             }
             R.id.menu_Keep_original_name -> {
                 item.isChecked = !item.isChecked
@@ -166,6 +176,7 @@ class ImportRssSourceDialog : BaseDialogFragment(), Toolbar.OnMenuItemClickListe
                 cbSourceName.setOnCheckedChangeListener { buttonView, isChecked ->
                     if (buttonView.isPressed) {
                         viewModel.selectStatus[holder.layoutPosition] = isChecked
+                        upSelectText()
                     }
                 }
             }
